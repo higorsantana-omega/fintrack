@@ -10,6 +10,7 @@ export class UsersService {
   async create(createUserDto: CreateUserDto) {
     const emailTaken = await this.prismaService.user.findUnique({
       where: { email: createUserDto.email },
+      select: { id: true },
     });
 
     if (emailTaken) throw new ConflictException('This email already in use.');
@@ -21,8 +22,20 @@ export class UsersService {
         name: createUserDto.name,
         email: createUserDto.email,
         password: hashedPassword,
+        categories: {
+          createMany: {
+            data: [
+              { name: 'Salary', icon: 'salary', type: 'INCOME' },
+              { name: 'House', icon: 'home', type: 'EXPENSE' },
+            ],
+          },
+        },
       },
     });
-    return user;
+
+    return {
+      name: user.name,
+      email: user.email,
+    };
   }
 }
