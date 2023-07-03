@@ -13,7 +13,6 @@ export class UsersRepository {
   async findByEmail(email: string) {
     return this.prismaService.user.findUnique({
       where: { email: email },
-      select: { id: true },
     });
   }
 }
