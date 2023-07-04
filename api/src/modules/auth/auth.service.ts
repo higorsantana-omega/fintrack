@@ -1,8 +1,13 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthenticateDto } from './dto/authenticate.dto';
 import { UsersRepository } from 'src/database/repositories/users.repositories';
-import { compare } from 'bcryptjs';
+import { compare, hash } from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
+import { SignupDto } from './dto/signup.dto';
 
 @Injectable()
 export class AuthService {
@@ -25,5 +30,34 @@ export class AuthService {
     const accessToken = await this.jwtService.signAsync({ sub: user.id });
 
     return { accessToken };
+  }
+
+  async signup(signupDto: SignupDto) {
+    const emailTaken = await this.usersRepository.findByEmail(signupDto.email);
+
+    if (emailTaken) throw new ConflictException('This email already in use.');
+
+    const hashedPassword = await hash(signupDto.password, 12);
+
+    const user = await this.usersRepository.create({
+      data: {
+        name: signupDto.name,
+        email: signupDto.email,
+        password: hashedPassword,
+        categories: {
+          createMany: {
+            data: [
+              { name: 'Salary', icon: 'salary', type: 'INCOME' },
+              { name: 'House', icon: 'home', type: 'EXPENSE' },
+            ],
+          },
+        },
+      },
+    });
+
+    return {
+      name: user.name,
+      email: user.email,
+    };
   }
 }
