@@ -7,6 +7,7 @@ import { env } from 'src/config/env';
 @Module({
   imports: [
     JwtModule.register({
+      global: true,
       secret: env.jwtSecret,
       signOptions: { expiresIn: '7d' },
     }),
