@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class BankAccountsRepository {
@@ -11,7 +12,7 @@ export class BankAccountsRepository {
     });
   }
 
-  async findMany(userId: string) {
+  async findAllByUserId(userId: string) {
     return this.prismaService.category.findMany({
       where: { userId },
     });
