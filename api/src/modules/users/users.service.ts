@@ -7,6 +7,9 @@ export class UsersService {
 
   async getUserById(userId: string) {
     const user = await this.usersRepository.findById(userId);
-    return user;
+    return {
+      name: user.name,
+      email: user.email,
+    };
   }
 }
