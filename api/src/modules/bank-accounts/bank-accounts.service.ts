@@ -25,12 +25,7 @@ export class BankAccountsService {
     bankAccountId: string,
     updateBankAccountDto: UpdateBankAccountDto,
   ) {
-    const isOwner = await this.bankAccountsRepository.findFirst(
-      userId,
-      bankAccountId,
-    );
-
-    if (!isOwner) throw new NotFoundException('Bank account not found.');
+    await this.validateBankAccountOwnership(userId, bankAccountId);
 
     return this.bankAccountsRepository.update(
       bankAccountId,
@@ -39,15 +34,22 @@ export class BankAccountsService {
   }
 
   async remove(userId: string, bankAccountId: string) {
+    await this.validateBankAccountOwnership(userId, bankAccountId);
+
+    await this.bankAccountsRepository.delete(bankAccountId);
+
+    return null;
+  }
+
+  private async validateBankAccountOwnership(
+    userId: string,
+    bankAccountId: string,
+  ) {
     const isOwner = await this.bankAccountsRepository.findFirst(
       userId,
       bankAccountId,
     );
 
     if (!isOwner) throw new NotFoundException('Bank account not found.');
-
-    await this.bankAccountsRepository.delete(bankAccountId);
-
-    return null;
   }
 }
