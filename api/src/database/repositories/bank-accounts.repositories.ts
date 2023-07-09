@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class BankAccountsRepository {
@@ -13,8 +12,21 @@ export class BankAccountsRepository {
   }
 
   async findAllByUserId(userId: string) {
-    return this.prismaService.category.findMany({
+    return this.prismaService.bankAccount.findMany({
       where: { userId },
+    });
+  }
+
+  async findFirst(userId: string, bankAccountId: string) {
+    return this.prismaService.bankAccount.findFirst({
+      where: { userId, id: bankAccountId },
+    });
+  }
+
+  update(bankAccountId: string, updateDto: any) {
+    return this.prismaService.bankAccount.update({
+      where: { id: bankAccountId },
+      data: updateDto,
     });
   }
 }
