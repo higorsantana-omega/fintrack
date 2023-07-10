@@ -1,15 +1,29 @@
 import { Injectable } from '@nestjs/common';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
+import { TransactionsRepository } from 'src/database/repositories/transactions.repositories';
+import { ValidateBankAccountOwnershipService } from '../bank-accounts/validate-bank-account-ownership.service';
+import { ValidateCategoryOwnershipService } from '../categories/validate-category-ownership.service';
 
 @Injectable()
 export class TransactionsService {
-  create(createTransactionDto: CreateTransactionDto) {
-    return 'This action adds a new transaction';
+  constructor(
+    private readonly transactionsRepository: TransactionsRepository,
+    private readonly validateBankAccountOwnershipService: ValidateBankAccountOwnershipService,
+    private readonly validateCategoryOwnershipService: ValidateCategoryOwnershipService,
+  ) {}
+
+  async create(userId: string, createTransactionDto: CreateTransactionDto) {
+    await this.validateEntitiesOwnership(userId, createTransactionDto);
+
+    return this.transactionsRepository.create({
+      ...createTransactionDto,
+      userId,
+    });
   }
 
-  findAll() {
-    return `This action returns all transactions`;
+  findAllByUserId(userId: string) {
+    return this.transactionsRepository.findMany(userId);
   }
 
   findOne(id: number) {
@@ -22,5 +36,20 @@ export class TransactionsService {
 
   remove(id: number) {
     return `This action removes a #${id} transaction`;
+  }
+
+  private async validateEntitiesOwnership(
+    userId: string,
+    transaction: CreateTransactionDto,
+  ) {
+    await this.validateBankAccountOwnershipService.validate(
+      userId,
+      transaction.bankAccountId,
+    );
+
+    await this.validateCategoryOwnershipService.validate(
+      userId,
+      transaction.categoryId,
+    );
   }
 }
