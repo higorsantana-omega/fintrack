@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { TransactionsRepository } from 'src/database/repositories/transactions.repositories';
@@ -30,26 +30,53 @@ export class TransactionsService {
     return `This action returns a #${id} transaction`;
   }
 
-  update(id: number, updateTransactionDto: UpdateTransactionDto) {
-    return `This action updates a #${id} transaction`;
+  async update(
+    userId: string,
+    transactionId: string,
+    updateTransactionDto: UpdateTransactionDto,
+  ) {
+    await this.validateEntitiesOwnership(userId, {
+      ...updateTransactionDto,
+      transactionId,
+    });
+
+    return this.transactionsRepository.update(
+      transactionId,
+      updateTransactionDto,
+    );
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} transaction`;
+  async remove(userId: string, transactionId: string) {
+    await this.validateEntitiesOwnership(userId, { transactionId });
+
+    await this.transactionsRepository.delete(transactionId);
   }
 
   private async validateEntitiesOwnership(
     userId: string,
-    transaction: CreateTransactionDto,
+    transaction: Partial<CreateTransactionDto> & { transactionId?: string },
   ) {
-    await this.validateBankAccountOwnershipService.validate(
-      userId,
-      transaction.bankAccountId,
-    );
+    const { bankAccountId, transactionId, categoryId } = transaction;
 
-    await this.validateCategoryOwnershipService.validate(
-      userId,
-      transaction.categoryId,
-    );
+    if (bankAccountId) {
+      await this.validateBankAccountOwnershipService.validate(
+        userId,
+        transaction.bankAccountId,
+      );
+    }
+
+    if (categoryId) {
+      await this.validateCategoryOwnershipService.validate(
+        userId,
+        transaction.categoryId,
+      );
+    }
+
+    if (transactionId) {
+      const isOwner = await this.transactionsRepository.findFirst(
+        transaction.transactionId,
+      );
+      if (!isOwner) throw new NotFoundException('Transaction not found.');
+    }
   }
 }

@@ -6,6 +6,9 @@ import {
   Patch,
   Param,
   Delete,
+  ParseUUIDPipe,
+  Put,
+  HttpCode,
 } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
@@ -29,16 +32,25 @@ export class TransactionsController {
     return this.transactionsService.findAllByUserId(userId);
   }
 
-  @Patch(':id')
+  @Put(':transactionId')
   update(
-    @Param('id') id: string,
+    @ActiveUserId() userId: string,
+    @Param('transactionId', ParseUUIDPipe) transactionId: string,
     @Body() updateTransactionDto: UpdateTransactionDto,
   ) {
-    return this.transactionsService.update(+id, updateTransactionDto);
+    return this.transactionsService.update(
+      userId,
+      transactionId,
+      updateTransactionDto,
+    );
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.transactionsService.remove(+id);
+  @Delete(':transactionId')
+  @HttpCode(204)
+  remove(
+    @ActiveUserId() userId: string,
+    @Param('transactionId') transactionId: string,
+  ) {
+    return this.transactionsService.remove(userId, transactionId);
   }
 }
