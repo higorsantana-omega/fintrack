@@ -1,14 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { FindAllFilters } from 'src/modules/transactions/transactions.service';
 
 @Injectable()
 export class TransactionsRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async findMany(userId: string, filters: { month: number; year: number }) {
+  async findMany(userId: string, filters: FindAllFilters) {
     return this.prismaService.transaction.findMany({
       where: {
         userId,
+        bankAccountId: filters.bankAccountId,
+        type: filters.type,
         date: {
           gte: new Date(Date.UTC(filters.year, filters.month)),
           lt: new Date(Date.UTC(filters.year, filters.month + 1)),
