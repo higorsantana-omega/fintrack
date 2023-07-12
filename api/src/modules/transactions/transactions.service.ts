@@ -22,8 +22,8 @@ export class TransactionsService {
     });
   }
 
-  findAllByUserId(userId: string) {
-    return this.transactionsRepository.findMany(userId);
+  findAllByUserId(userId: string, month: number, year: number) {
+    return this.transactionsRepository.findMany(userId, { month, year });
   }
 
   findOne(id: number) {

@@ -5,9 +5,15 @@ import { PrismaService } from '../prisma.service';
 export class TransactionsRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async findMany(userId: string) {
+  async findMany(userId: string, filters: { month: number; year: number }) {
     return this.prismaService.transaction.findMany({
-      where: { userId },
+      where: {
+        userId,
+        date: {
+          gte: new Date(Date.UTC(filters.year, filters.month)),
+          lt: new Date(Date.UTC(filters.year, filters.month + 1)),
+        },
+      },
     });
   }
 
