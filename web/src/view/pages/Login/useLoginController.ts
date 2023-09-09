@@ -5,6 +5,7 @@ import { AuthenticationConstants } from '../../constants/AuthenticationConstats'
 import { useMutation } from '@tanstack/react-query'
 import { SigninParams, authService } from '../../../app/services/authService'
 import toast from 'react-hot-toast'
+import { useAuth } from '../../../app/hooks/useAuth'
 
 const schema = z.object({
   email: z.string().nonempty(AuthenticationConstants.EMAIL_REQUIRED).email(),
@@ -28,9 +29,12 @@ export function useLoginController () {
     }
   })
 
+  const { signin } = useAuth()
+
   const handleSubmit = hookFormSubmit(async data => {
     try {
       const { accessToken } = await mutateAsync(data)
+      signin(accessToken)
       console.log({ accessToken })
     } catch (error) {
       toast.error('Credenciais invalidas')
