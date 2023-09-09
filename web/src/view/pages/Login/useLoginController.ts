@@ -2,7 +2,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { AuthenticationConstants } from "../../constants/AuthenticationConstats";
-import { httpClient } from "../../../app/services/httpClient";
 import { useMutation } from "@tanstack/react-query";
 import { SigninParams, authService } from "../../../app/services/authService";
 import toast from "react-hot-toast";
