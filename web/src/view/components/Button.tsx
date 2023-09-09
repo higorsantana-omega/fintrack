@@ -17,7 +17,7 @@ export function Button ({ className, isLoading, disabled, children, ...props }: 
       )}
     >
       {!isLoading && children}
-      {isLoading && <Spinner className="w-6 h-6" />}
+      {isLoading && <Spinner className='w-6 h-6' />}
     </button>
   )
 }

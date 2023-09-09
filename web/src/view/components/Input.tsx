@@ -9,7 +9,7 @@ interface InputProps extends ComponentProps<'input'> {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(({ className, error, placeholder, name, id, ...props }, ref) => {
   return (
-    <div className="relative">
+    <div className='relative'>
       <input
         {...props}
         name={name}
@@ -19,17 +19,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({ className, erro
           error && '!border-red-900',
           className
         )}
-        placeholder=" "
+        placeholder=' '
         ref={ref}
       />
-      <label className="absolute left-[13px] text-xs top-2 pointer-events-none text-gray-700 peer-placeholder-shown:text-base peer-placeholder-shown:top-3.5 transition-all" htmlFor={id ?? name}>
+      <label className='absolute left-[13px] text-xs top-2 pointer-events-none text-gray-700 peer-placeholder-shown:text-base peer-placeholder-shown:top-3.5 transition-all' htmlFor={id ?? name}>
         {placeholder}
       </label>
 
       {error && (
-        <div className="flex gap-2 items-center mt-2 text-red-900">
+        <div className='flex gap-2 items-center mt-2 text-red-900'>
           <CrossCircledIcon />
-          <span className="text-xs">{error}</span>
+          <span className='text-xs'>{error}</span>
         </div>
       )}
     </div>
