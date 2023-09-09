@@ -1,11 +1,11 @@
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
 
-import { AuthenticationConstants } from "../../constants/AuthenticationConstats"
-import { SignupParams, authService } from "../../../app/services/authService"
-import { useMutation } from "@tanstack/react-query"
-import toast from "react-hot-toast"
+import { AuthenticationConstants } from '../../constants/AuthenticationConstats'
+import { SignupParams, authService } from '../../../app/services/authService'
+import { useMutation } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 
 const schema = z.object({
   name: z.string().nonempty(AuthenticationConstants.NAME_REQUIRED),
