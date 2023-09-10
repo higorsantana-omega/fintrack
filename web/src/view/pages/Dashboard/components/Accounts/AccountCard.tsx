@@ -1,5 +1,5 @@
-import { formatCurrency } from '../../../../app/utils/formatCurrency'
-import { CategoryIcon } from '../../../components/icons/categories/CategoryIcon'
+import { formatCurrency } from '../../../../../app/utils/formatCurrency'
+import { CategoryIcon } from '../../../../components/icons/categories/CategoryIcon'
 
 interface AccountCardProps {
   color: string
