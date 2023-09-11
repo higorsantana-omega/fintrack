@@ -1,14 +1,11 @@
-import { useAuth } from '../../../app/hooks/useAuth'
-import { Button } from '../../components/Button'
 import { Logo } from '../../components/Logo'
 import { UserMenu } from '../../components/UserMenu'
 import { Accounts } from './components/Accounts'
 import { DashboardProvider } from './components/DashboardContext'
+import { Fab } from './components/Fab'
 import { Transactions } from './components/Transactions'
 
 export function Dashboard() {
-  const { signout } = useAuth()
-
   return (
     <DashboardProvider>
       <div className='h-full w-full p-4 md:px-8 pb-8 pt-6 flex flex-col gap-4'>
@@ -26,6 +23,8 @@ export function Dashboard() {
             <Transactions />
           </div>
         </main>
+
+        <Fab />
       </div>
     </DashboardProvider>
     
