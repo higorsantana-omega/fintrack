@@ -10,7 +10,7 @@ import { Spinner } from '../../../../components/Spinner'
 import { PlusIcon } from '@radix-ui/react-icons'
 
 export function Accounts() {
-  const { toggleCloseNewAccountModal, sliderState, setSliderState, windowWidth, areValuesVisible, toggleValueVisibility, isLoading, accounts } = useAccountsController()
+  const { currentBalance, toggleCloseNewAccountModal, sliderState, setSliderState, windowWidth, areValuesVisible, toggleValueVisibility, isLoading, accounts } = useAccountsController()
 
   return (
     <div className='bg-teal-900 rounded-2xl w-full h-full flex flex-col md:p-10 px-4 py-8'>
@@ -31,7 +31,7 @@ export function Accounts() {
                   !areValuesVisible && 'blur-[10px]'
                 )}
               >
-                {formatCurrency(1000)}
+                {formatCurrency(currentBalance)}
               </strong>
               <button className='w-8 h-12 flex items-center justify-center' onClick={toggleValueVisibility}>
                 <EyeIcon open={!areValuesVisible} />
@@ -74,18 +74,11 @@ export function Accounts() {
                     />
                   </div>
 
-                  <SwiperSlide>
-                    <AccountCard color='#7950f2' name='Nobanks' balance={1000.23} type='CASH' />
-                  </SwiperSlide>
-                  <SwiperSlide>
-                    <AccountCard color='#7950f2' name='Nobanks' balance={1000.23} type='CASH' />
-                  </SwiperSlide>
-                  <SwiperSlide>
-                    <AccountCard color='#7950f2' name='Nobanks' balance={1000.23} type='CASH' />
-                  </SwiperSlide>
-                  <SwiperSlide>
-                    <AccountCard color='#7950f2' name='Nobanks' balance={1000.23} type='CASH' />
-                  </SwiperSlide>
+                  {accounts.map(account => (
+                    <SwiperSlide key={account.id}>
+                      <AccountCard color={account.color} name={account.name} balance={account.currentBalance} type={account.type} />
+                    </SwiperSlide>
+                  ))}
                 </Swiper>
               </div>
             )}

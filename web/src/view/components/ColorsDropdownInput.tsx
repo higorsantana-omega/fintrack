@@ -8,13 +8,21 @@ import { Color, colors } from '../constants/ColorsConstants'
 interface ColorsDropdownInputProps {
   className?: string
   error?: string
+  onChange?(value: string): void
+  value?: string
 }
 
-export function ColorsDropdownInput({ className, error }: ColorsDropdownInputProps) {
-  const [selectedColor, setSelectedcolor] = useState<null | Color>(null)
+export function ColorsDropdownInput({ className, error, onChange, value }: ColorsDropdownInputProps) {
+  const [selectedColor, setSelectedcolor] = useState<null | Color>(() => {
+    if (!value) return null
+
+    const color = colors.find(c => c.color === value)
+    return color ?? null
+  })
 
   function handleSelect(color: Color) {
     setSelectedcolor(color)
+    onChange?.(color.color)
   }
 
   return (
