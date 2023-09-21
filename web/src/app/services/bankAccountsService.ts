@@ -22,6 +22,11 @@ export async function create(params: BankAccountParams) {
   return data
 }
 
+export async function update(params: BankAccountParams & { id: string }) {
+  const { data } = await httpClient.put(`/bank-accounts/${params.id}`, params)
+  return data
+}
+
 export async function getAll() {
   const { data } = await httpClient.get<BankAccountResponse[]>('/bank-accounts')
   return data
@@ -30,5 +35,6 @@ export async function getAll() {
 
 export const bankAccountsService = {
   create,
+  update,
   getAll
 }
