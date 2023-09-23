@@ -6,6 +6,8 @@ import { InputCurrency } from '../../../../components/InputCurrency'
 import { Modal } from '../../../../components/Modal'
 import { Select } from '../../../../components/Select'
 import { useEditAccountModalController } from './useEditAccountModalController'
+import { TrashIcon } from '@radix-ui/react-icons'
+import { ConfirmDeleteModal } from '../../../../components/ConfirmDeleteModal'
 
 export function EditAccountModal() {
   const {
@@ -15,11 +17,30 @@ export function EditAccountModal() {
     handleSubmit,
     register,
     control,
-    isLoading
+    isLoading,
+    handleOpenDeleteModal,
+    handleCloseDeleteModal,
+    isDeleteModalOpen,
+    handleDeleteAccount,
+    isLoadingDelete
   } = useEditAccountModalController()
 
+  if (isDeleteModalOpen) {
+    return <ConfirmDeleteModal
+      isLoading={isLoadingDelete}
+      onConfirm={handleDeleteAccount}
+      onClose={handleCloseDeleteModal}
+      title='Tem certeza que deseja excluir esta conta?'
+      description='Ao excluir a conta, tambem serao excluidos todos os registros de receitas e despesas relacionados'
+    />
+  }
+
   return (
-    <Modal title='Editar conta' open={isEditAccountModalOpen} onClose={toggleOpenEditAccountModal}>
+    <Modal title='Editar conta' open={isEditAccountModalOpen} onClose={toggleOpenEditAccountModal} rightAction={(
+      <button onClick={handleOpenDeleteModal}>
+        <TrashIcon className='w-6 h-6 text-red-900' />
+      </button>
+    )}>
       <form onSubmit={handleSubmit}>
         <div className='flex justify-center flex-col items-start'>
           <div className='flex items-center gap-2'>

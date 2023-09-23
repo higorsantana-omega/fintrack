@@ -27,6 +27,12 @@ export async function update(params: BankAccountParams & { id: string }) {
   return data
 }
 
+export async function remove(bankAccountId: string) {
+  const { data } = await httpClient.delete(`/bank-accounts/${bankAccountId}`)
+  return data
+}
+
+
 export async function getAll() {
   const { data } = await httpClient.get<BankAccountResponse[]>('/bank-accounts')
   return data
@@ -36,5 +42,6 @@ export async function getAll() {
 export const bankAccountsService = {
   create,
   update,
+  remove,
   getAll
 }
