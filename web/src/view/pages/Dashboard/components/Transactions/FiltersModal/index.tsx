@@ -9,23 +9,13 @@ interface FiltersModalProps {
   onClose(): void
 }
 
-const mockedAccounts = [
-  {
-    id: '123',
-    name: 'no banks'
-  },
-  {
-    id: '123dsfa',
-    name: 'no banks2'
-  }
-]
-
 export function FiltersModal({ onClose, open }: FiltersModalProps) {
   const {
     handleSelectBankAccount,
     selectedBankAccountId,
     selectedYear,
-    handleChangeYear
+    handleChangeYear,
+    accounts
   } = useFiltersModal()
 
   return (
@@ -36,7 +26,7 @@ export function FiltersModal({ onClose, open }: FiltersModalProps) {
         </span>
 
         <div className='space-y-2 mt-2'>
-          {mockedAccounts.map(account => (
+          {accounts.map(account => (
             <button
               key={account.id}
               onClick={() => handleSelectBankAccount(account.id)}

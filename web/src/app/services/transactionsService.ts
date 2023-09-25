@@ -1,11 +1,5 @@
+import { Transaction } from '../entities/Transaction'
 import { httpClient } from './httpClient'
-
-interface Category {
-  id: string
-  name: string
-  icon: string
-  type: 'INCOME' | 'EXPENSE'
-}
 
 interface CreateTransactionParams {
   bankAccountId: string
@@ -16,13 +10,22 @@ interface CreateTransactionParams {
   type: 'INCOME' | 'EXPENSE'
 }
 
+export type TransactionsFilters = {
+  month: number
+  year: number
+  bankAccountId?: string
+  type?: Transaction['type']
+}
+
 export async function create(params: CreateTransactionParams) {
   const { data } = await httpClient.post('/transactions', params)
   return data
 }
 
-export async function getAll() {
-  const { data } = await httpClient.get<Category[]>('/categories')
+export async function getAll(filters: TransactionsFilters) {
+  const { data } = await httpClient.get<Transaction[]>('/transactions', {
+    params: filters
+  })
   return data
 }
 
