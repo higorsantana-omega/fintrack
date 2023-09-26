@@ -28,6 +28,18 @@ export function useTransactionsController() {
       setFilters(prevState => ({ ...prevState, [filter]: value }))
     }
   }
+
+  function handleApplyFilters (filters: { bankAccountId: string | undefined, year: number }) {
+    const { 
+      bankAccountId,
+      year
+    } = filters
+
+    handleChangeFilters('bankAccountId')(bankAccountId)
+    handleChangeFilters('year')(year)
+    setIsFiltersModalOpen(false)
+  }
+
   function handleOpenFiltersModal() {
     setIsFiltersModalOpen(true)
   }
@@ -36,5 +48,5 @@ export function useTransactionsController() {
     setIsFiltersModalOpen(false)
   }
 
-  return { filters, handleChangeFilters, areValuesVisible, isLoading, isInitialLoading, isFiltersModalOpen, handleOpenFiltersModal, handleCloseFiltersModal, transactions }
+  return { handleApplyFilters, filters, handleChangeFilters, areValuesVisible, isLoading, isInitialLoading, isFiltersModalOpen, handleOpenFiltersModal, handleCloseFiltersModal, transactions }
 }

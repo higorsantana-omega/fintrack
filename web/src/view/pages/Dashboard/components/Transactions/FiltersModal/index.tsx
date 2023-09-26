@@ -7,9 +7,10 @@ import { cn } from '../../../../../../app/utils/cn'
 interface FiltersModalProps {
   open: boolean
   onClose(): void
+  onApplyFilters(filters: { bankAccountId: string | undefined, year: number }): void
 }
 
-export function FiltersModal({ onClose, open }: FiltersModalProps) {
+export function FiltersModal({ onClose, onApplyFilters, open }: FiltersModalProps) {
   const {
     handleSelectBankAccount,
     selectedBankAccountId,
@@ -59,7 +60,13 @@ export function FiltersModal({ onClose, open }: FiltersModalProps) {
         </div>
        </div>
 
-       <Button className='w-full mt-10'>
+       <Button
+        className='w-full mt-10'
+        onClick={() => onApplyFilters({
+            bankAccountId: selectedBankAccountId,
+            year: selectedYear
+          })
+        }>
         Aplicar filtros
        </Button>
     </Modal>

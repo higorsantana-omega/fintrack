@@ -14,7 +14,7 @@ import { formatCurrency } from '../../../../../app/utils/formatCurrency'
 import { formatDate } from '../../../../../app/utils/formatDate'
 
 export function Transactions() {
-  const { filters, handleChangeFilters, areValuesVisible, isLoading, isInitialLoading, transactions, handleCloseFiltersModal, handleOpenFiltersModal, isFiltersModalOpen } = useTransactionsController()
+  const { handleApplyFilters, filters, handleChangeFilters, areValuesVisible, isLoading, isInitialLoading, transactions, handleCloseFiltersModal, handleOpenFiltersModal, isFiltersModalOpen } = useTransactionsController()
 
   return (
     <div className='bg-gray-100 rounded-2xl w-full h-full md:p-10 px-4 py-8 flex flex-col'>
@@ -28,6 +28,7 @@ export function Transactions() {
           <FiltersModal
             open={isFiltersModalOpen}
             onClose={handleCloseFiltersModal}
+            onApplyFilters={handleApplyFilters}
           />
 
           <header>
