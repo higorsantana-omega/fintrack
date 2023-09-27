@@ -5,6 +5,9 @@ export interface Transaction {
   date: string
   type: 'INCOME' | 'EXPENSE'
 
+  categoryId?: string
+  bankAccountId?: string
+
   category?: {
     id: string
     name: string

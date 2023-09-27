@@ -12,9 +12,10 @@ import { TransactionTypeDropdown } from './TransactionTypeDropdown'
 import { FiltersModal } from './FiltersModal'
 import { formatCurrency } from '../../../../../app/utils/formatCurrency'
 import { formatDate } from '../../../../../app/utils/formatDate'
+import { EditTransactionModal } from '../../modals/EditTransactionModal'
 
 export function Transactions() {
-  const { handleApplyFilters, filters, handleChangeFilters, areValuesVisible, isLoading, isInitialLoading, transactions, handleCloseFiltersModal, handleOpenFiltersModal, isFiltersModalOpen } = useTransactionsController()
+  const { handleCloseTransactionModal, handleOpenTransactionModal, isEditModalOpen, transactionBeingEdited, handleApplyFilters, filters, handleChangeFilters, areValuesVisible, isLoading, isInitialLoading, transactions, handleCloseFiltersModal, handleOpenFiltersModal, isFiltersModalOpen } = useTransactionsController()
 
   return (
     <div className='bg-gray-100 rounded-2xl w-full h-full md:p-10 px-4 py-8 flex flex-col'>
@@ -85,8 +86,16 @@ export function Transactions() {
   
             {(transactions.length > 0 && !isLoading) && (
               <>
+                {transactionBeingEdited && (
+                  <EditTransactionModal
+                    open={isEditModalOpen}
+                    onClose={handleCloseTransactionModal}
+                    transaction={transactionBeingEdited}
+                  />
+                )}
+              
                 {transactions.map(transaction => (
-                  <div className='bg-white p-4 rounded-2xl flex items-center justify-between gap-4'>
+                  <div className='bg-white p-4 rounded-2xl flex items-center justify-between gap-4' role='button' onClick={() => handleOpenTransactionModal(transaction)}>
                     <div className='flex-1 flex items-center gap-3'>
                       <CategoryIcon
                         type={transaction.type === 'EXPENSE' ? 'expense' : 'income'}
