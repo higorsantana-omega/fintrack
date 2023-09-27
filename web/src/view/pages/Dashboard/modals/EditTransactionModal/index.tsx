@@ -7,6 +7,8 @@ import { useEditTransactionModalController } from './useEditTransactionModalCont
 import { Controller } from 'react-hook-form'
 import { Button } from '../../../../components/Button'
 import { Transaction } from '../../../../../app/entities/Transaction'
+import { TrashIcon } from '@radix-ui/react-icons'
+import { ConfirmDeleteModal } from '../../../../components/ConfirmDeleteModal'
 
 interface EditTransactionModalProps {
   transaction: Transaction | null
@@ -23,12 +25,35 @@ export function EditTransactionModal({ transaction, onClose, open }: EditTransac
     accounts,
     categories,
     isLoading,
+    isDeleteModalOpen,
+    isLoadingDelete,
+    handleCloseDeleteModal,
+    handleDeleteTransaction,
+    handleOpenDeleteModal
   } = useEditTransactionModalController(transaction, onClose)
 
   const isExpense = transaction?.type === 'EXPENSE'
 
+  if (isDeleteModalOpen) {
+    return <ConfirmDeleteModal
+      isLoading={isLoadingDelete}
+      onConfirm={handleDeleteTransaction}
+      onClose={handleCloseDeleteModal}
+      title={`Tem certeza que deseja excluir esta ${isExpense ? 'despesa' : 'receita'}?`}
+    />
+  }
+
   return (
-    <Modal title={isExpense ? 'Editar Despesa' : 'Editar Receita'} open={open} onClose={onClose}>
+    <Modal
+      title={isExpense ? 'Editar Despesa' : 'Editar Receita'}
+      open={open}
+      onClose={onClose}
+      rightAction={(
+        <button onClick={handleOpenDeleteModal}>
+          <TrashIcon className='w-6 h-6 text-red-900' />
+        </button>
+      )}
+    >
       <form onSubmit={handleSubmit}>
         <div className='flex justify-center flex-col items-start'>
           <div className='flex items-center gap-2'>

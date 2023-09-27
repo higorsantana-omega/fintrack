@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { useBankAccounts } from '../../../../../app/hooks/useBankAccounts'
 import { useCategories } from '../../../../../app/hooks/useCategories'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { transactionsService } from '../../../../../app/services/transactionsService'
 import toast from 'react-hot-toast'
@@ -27,6 +27,8 @@ export function useEditTransactionModalController(
   transaction: Transaction | null,
   onClose: () => void
 ) {
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+
   const {
     register,
     formState: { errors },
@@ -51,6 +53,11 @@ export function useEditTransactionModalController(
     isLoading,
     mutateAsync
   } = useMutation(transactionsService.update)
+  const {
+    isLoading: isLoadingDelete,
+    mutateAsync: removeTransaction
+  } = useMutation(transactionsService.remove)
+  
   
   const handleSubmit = hookFormSubmit(async data => {
     try {
@@ -84,5 +91,29 @@ export function useEditTransactionModalController(
     return categoriesList.filter(category => category.type === transaction?.type)
   }, [categoriesList, transaction])
 
-  return { isLoading, mutateAsync, accounts, categories, handleSubmit, register, errors, control, reset }
+  async function handleDeleteTransaction () {
+    try {
+      await removeTransaction(transaction!.id)
+
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      toast.success(transaction!.type === 'EXPENSE'
+      ? 'A despesa foi deletada com sucesso!'
+      : 'A receita foi deletada com sucesso!')
+      onClose()
+    } catch {
+      transaction!.type === 'EXPENSE'
+          ? 'Erro ao deletar despesa!'
+          : 'Erro ao deletar receita!'
+    }
+  }
+
+  function handleCloseDeleteModal () {
+    setIsDeleteModalOpen(false)
+  }
+
+  function handleOpenDeleteModal () {
+    setIsDeleteModalOpen(true)
+  }
+
+  return { isDeleteModalOpen, isLoadingDelete, handleDeleteTransaction, handleCloseDeleteModal, handleOpenDeleteModal, isLoading, mutateAsync, accounts, categories, handleSubmit, register, errors, control, reset }
 }

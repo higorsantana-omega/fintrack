@@ -37,6 +37,11 @@ export async function update({ id, ...params}: UpdateTransactionParams) {
   return data
 }
 
+export async function remove(transactionId: string) {
+  const { data } = await httpClient.delete(`/transactions/${transactionId}`)
+  return data
+}
+
 export async function getAll(filters: TransactionsFilters) {
   const { data } = await httpClient.get<Transaction[]>('/transactions', {
     params: filters
@@ -48,5 +53,6 @@ export async function getAll(filters: TransactionsFilters) {
 export const transactionsService = {
   create,
   update,
+  remove,
   getAll
 }
