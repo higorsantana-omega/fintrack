@@ -7,25 +7,16 @@ import { cn } from '../../../../../../app/utils/cn'
 interface FiltersModalProps {
   open: boolean
   onClose(): void
+  onApplyFilters(filters: { bankAccountId: string | undefined, year: number }): void
 }
 
-const mockedAccounts = [
-  {
-    id: '123',
-    name: 'no banks'
-  },
-  {
-    id: '123dsfa',
-    name: 'no banks2'
-  }
-]
-
-export function FiltersModal({ onClose, open }: FiltersModalProps) {
+export function FiltersModal({ onClose, onApplyFilters, open }: FiltersModalProps) {
   const {
     handleSelectBankAccount,
     selectedBankAccountId,
     selectedYear,
-    handleChangeYear
+    handleChangeYear,
+    accounts
   } = useFiltersModal()
 
   return (
@@ -36,7 +27,7 @@ export function FiltersModal({ onClose, open }: FiltersModalProps) {
         </span>
 
         <div className='space-y-2 mt-2'>
-          {mockedAccounts.map(account => (
+          {accounts.map(account => (
             <button
               key={account.id}
               onClick={() => handleSelectBankAccount(account.id)}
@@ -69,7 +60,13 @@ export function FiltersModal({ onClose, open }: FiltersModalProps) {
         </div>
        </div>
 
-       <Button className='w-full mt-10'>
+       <Button
+        className='w-full mt-10'
+        onClick={() => onApplyFilters({
+            bankAccountId: selectedBankAccountId,
+            year: selectedYear
+          })
+        }>
         Aplicar filtros
        </Button>
     </Modal>

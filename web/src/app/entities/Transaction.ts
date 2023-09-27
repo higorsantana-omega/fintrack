@@ -1,9 +1,16 @@
-export interface BankAccount {
+export interface Transaction {
   id: string
   name: string
   value: number
-  caetgoryId: string
-  type: 'CHECKING' | 'INVESTMENT' | 'CASH'
-  color: string
-  currentBalance: number
+  date: string
+  type: 'INCOME' | 'EXPENSE'
+
+  categoryId?: string
+  bankAccountId?: string
+
+  category?: {
+    id: string
+    name: string
+    icon: string
+  }
 }

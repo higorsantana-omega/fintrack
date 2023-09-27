@@ -10,9 +10,12 @@ import { Spinner } from '../../../../components/Spinner'
 import emptyStateImage from '../../../../../assets/empty-state.svg'
 import { TransactionTypeDropdown } from './TransactionTypeDropdown'
 import { FiltersModal } from './FiltersModal'
+import { formatCurrency } from '../../../../../app/utils/formatCurrency'
+import { formatDate } from '../../../../../app/utils/formatDate'
+import { EditTransactionModal } from '../../modals/EditTransactionModal'
 
 export function Transactions() {
-  const { areValuesVisible, isLoading, isInitialLoading, transactions, handleCloseFiltersModal, handleOpenFiltersModal, isFiltersModalOpen } = useTransactionsController()
+  const { handleCloseTransactionModal, handleOpenTransactionModal, isEditModalOpen, transactionBeingEdited, handleApplyFilters, filters, handleChangeFilters, areValuesVisible, isLoading, isInitialLoading, transactions, handleCloseFiltersModal, handleOpenFiltersModal, isFiltersModalOpen } = useTransactionsController()
 
   return (
     <div className='bg-gray-100 rounded-2xl w-full h-full md:p-10 px-4 py-8 flex flex-col'>
@@ -26,11 +29,15 @@ export function Transactions() {
           <FiltersModal
             open={isFiltersModalOpen}
             onClose={handleCloseFiltersModal}
+            onApplyFilters={handleApplyFilters}
           />
 
           <header>
             <div className='flex items-center justify-between'>
-              <TransactionTypeDropdown />
+              <TransactionTypeDropdown
+                onSelect={handleChangeFilters('type')}
+                selectedType={filters.type}
+              />
 
               <button onClick={handleOpenFiltersModal}>
                 <FilterIcon />
@@ -41,6 +48,10 @@ export function Transactions() {
               <Swiper
                 slidesPerView={3}
                 centeredSlides
+                initialSlide={filters.month}
+                onSlideChange={swiper => {
+                  handleChangeFilters('month')(swiper.realIndex)
+                }}
               >
                 <TransactionsSliderNavigation />
 
@@ -75,23 +86,40 @@ export function Transactions() {
   
             {(transactions.length > 0 && !isLoading) && (
               <>
-                <div className='bg-white p-4 rounded-2xl flex items-center justify-between gap-4'>
-                  <div className='flex-1 flex items-center gap-3'>
-                    <CategoryIcon type='expense' />
+                {transactionBeingEdited && (
+                  <EditTransactionModal
+                    open={isEditModalOpen}
+                    onClose={handleCloseTransactionModal}
+                    transaction={transactionBeingEdited}
+                  />
+                )}
+              
+                {transactions.map(transaction => (
+                  <div className='bg-white p-4 rounded-2xl flex items-center justify-between gap-4' role='button' onClick={() => handleOpenTransactionModal(transaction)}>
+                    <div className='flex-1 flex items-center gap-3'>
+                      <CategoryIcon
+                        type={transaction.type === 'EXPENSE' ? 'expense' : 'income'}
+                        category={transaction.category?.icon}
+                      />
 
-                    <div>
-                      <strong className='font-bold tracking-[-0.5px] block'>Janta</strong>
-                      <span className='text-sm text-gray-600'>5432</span>
+                      <div>
+                        <strong className='font-bold tracking-[-0.5px] block'>{transaction.name}</strong>
+                        <span className='text-sm text-gray-600'>{formatDate(new Date(transaction.date))}</span>
+                      </div>
                     </div>
-                  </div>
 
-                  <span
-                    className={cn(
-                      'text-red-800 tracking-[-0.5px] font-medium',
-                      !areValuesVisible && 'blur-[8px]'
-                    )}
-                  >5432</span>
-                </div>
+                    <span
+                      className={cn(
+                        'tracking-[-0.5px] font-medium',
+                        transaction.type === 'EXPENSE' ? 'text-red-800' : 'text-green-800',
+                        !areValuesVisible && 'blur-[8px]'
+                      )}
+                    >
+                      {transaction.type === 'EXPENSE' ? '-' : '+'} {formatCurrency(transaction.value)}
+                    </span>
+                  </div>
+                ))}
+                
               </>
             )}
           </div>
