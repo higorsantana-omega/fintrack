@@ -4,8 +4,10 @@ import { useQuery } from '@tanstack/react-query'
 import { usersService } from '../services/usersService'
 import toast from 'react-hot-toast'
 import { PageLoader } from '../../view/components/PageLoader'
+import { User } from '../entities/User'
 
 interface AuthContextValue {
+  user?: User
   signedIn: boolean
   signin(accessToken: string): void
   signout(): void
@@ -19,7 +21,7 @@ export function AuthProvider({ children }: { children: React.ReactNode}) {
     return !!storedAccessToken
   })
 
-  const { isError, isFetching, isSuccess, remove } = useQuery({
+  const { isError, isFetching, isSuccess, remove, data } = useQuery({
     queryKey: ['users', 'me'],
     queryFn: () => {
       return usersService.me()
@@ -48,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode}) {
 
 
   return (
-    <AuthContext.Provider value={{ signedIn: isSuccess && signedIn, signin, signout }}>
+    <AuthContext.Provider value={{ user: data, signedIn: isSuccess && signedIn, signin, signout }}>
       <PageLoader isLoading={isFetching} />
       
       {!isFetching && children}
