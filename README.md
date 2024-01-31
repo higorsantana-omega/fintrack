@@ -16,7 +16,9 @@
 - Tailwind CSS
 - Cypress
 
-## :construction_worker: Running Locally
+## Screenshot
+
+## Running Locally
 
 #### Clone repository
 ```bash
