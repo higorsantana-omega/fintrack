@@ -29,6 +29,14 @@ export class TransactionsRepository {
     });
   }
 
+  async findManyByGoalId(goalId: string) {
+    return this.prismaService.transaction.findMany({
+      where: { goalId },
+      orderBy: { date: 'asc' },
+      include: { bankAccount: { select: { id: true, name: true } } },
+    });
+  }
+
   async create(data: any) {
     return this.prismaService.transaction.create({ data });
   }
