@@ -6,13 +6,15 @@ import { Popover } from './Popover'
 import { DatePicker } from './DatePicker'
 
 interface DatePickerProps {
+  id?: string
+  label?: string
   className?: string
   error?: string
   value?: Date
   onChange?(date: Date): void
 }
 
-export function DatePickerInput ({ className, value, error, onChange }: DatePickerProps) {
+export function DatePickerInput ({ id, label = 'Data', className, value, error, onChange }: DatePickerProps) {
   const [selectedDate, setSelectedDate] = useState(value ?? new Date())
 
   function handleChangeDate(date: Date) {
@@ -25,6 +27,7 @@ export function DatePickerInput ({ className, value, error, onChange }: DatePick
       <Popover.Root>
         <Popover.Trigger>
           <button
+            id={id}
             type='button'
             className={cn(
               'bg-white w-full pt-4 relative text-left rounded-lg border border-gray-500 px-3 h-[52px] text-gray-700 focus:border-gray-800 transition-all outline-none',
@@ -32,7 +35,7 @@ export function DatePickerInput ({ className, value, error, onChange }: DatePick
               className
             )}
           >
-            <span className='absolute text-gray-700 text-xs left-[13px] top-2 pointer-events-none'>Data</span>
+            <span className='absolute text-gray-700 text-xs left-[13px] top-2 pointer-events-none'>{label}</span>
             <span>{formatDate(selectedDate)}</span>
           </button>
         </Popover.Trigger>

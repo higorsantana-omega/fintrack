@@ -5,6 +5,7 @@ import { Register } from '../view/pages/Register'
 import { AuthLayout } from '../view/layouts/AuthLayout'
 import { Dashboard } from '../view/pages/Dashboard'
 import { AppLayout } from '../view/layouts/AppLayout'
+import { Goals } from '../view/pages/Goals'
 
 export function Router () {
   return (
@@ -20,6 +21,7 @@ export function Router () {
         <Route element={<AuthGuard isPrivate />}>
           <Route element={<AppLayout />}>
             <Route path='/' element={<Dashboard />}/>
+            <Route path='/metas' element={<Goals />}/>
           </Route>
         </Route>
       </Routes>

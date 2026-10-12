@@ -1,15 +1,9 @@
 import { Controller } from 'react-hook-form'
-import { MONTHS } from '../../../app/config/constants'
+import { formatMonth } from '../../../app/utils/formatMonth'
 import { Modal } from '../Modal'
 import { Button } from '../Button'
 import { InputCurrency } from '../InputCurrency'
 import { useContributionRemindersController } from './useContributionRemindersController'
-
-function formatReminderMonth(month: string) {
-  const [year, monthNumber] = month.split('-').map(Number)
-
-  return `${MONTHS[monthNumber - 1]}/${year}`
-}
 
 export function ContributionReminders() {
   const {
@@ -40,7 +34,7 @@ export function ContributionReminders() {
         </strong>
         <div className='flex gap-4 text-sm text-gray-700 tracking-[-0.5px]'>
           <span>
-            Mês: <strong id='reminder-month'>{formatReminderMonth(currentReminder.month)}</strong>
+            Mês: <strong id='reminder-month'>{formatMonth(currentReminder.month)}</strong>
           </span>
           {currentReminder.bankAccount && (
             <span>Conta: <strong>{currentReminder.bankAccount.name}</strong></span>
