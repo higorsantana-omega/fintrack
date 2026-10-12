@@ -75,6 +75,22 @@ export class GoalsRepository {
     });
   }
 
+  /** Non-archived goals using the account as source or holding contributions in it. */
+  findActiveGoalsLinkedToBankAccount(userId: string, bankAccountId: string) {
+    return this.prismaService.goal.findMany({
+      where: {
+        userId,
+        archivedAt: null,
+        OR: [
+          { bankAccountId },
+          { transactions: { some: { bankAccountId, type: 'EXPENSE' } } },
+        ],
+      },
+      select: { id: true, name: true },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
   update(goalId: string, data: GoalData) {
     return this.prismaService.goal.update({
       where: { id: goalId },
