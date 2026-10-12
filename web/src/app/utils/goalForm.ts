@@ -3,17 +3,18 @@ import { GoalParams } from '../services/goalsService'
 import { currencyStringToNumber } from './currencyStringToNumber'
 import { toGoalsCalendarDate } from './goalPlanning'
 
-const currency = (message: string) => z.union([
-  z.string().nonempty(message),
+const currency = (requiredMessage: string) => z.union([
+  z.string().nonempty(requiredMessage),
   z.number()
 ])
 
+export const positiveCurrency = (requiredMessage: string, positiveMessage: string) =>
+  currency(requiredMessage).refine(value => currencyStringToNumber(value) > 0, positiveMessage)
+
 export const goalFormSchema = z.object({
   name: z.string().nonempty('Informe o nome da meta'),
-  targetAmount: currency('Informe o valor alvo')
-    .refine(value => currencyStringToNumber(value) > 0, 'O valor alvo deve ser maior que zero'),
-  monthlyContribution: currency('Informe o aporte mensal')
-    .refine(value => currencyStringToNumber(value) > 0, 'O aporte mensal deve ser maior que zero'),
+  targetAmount: positiveCurrency('Informe o valor alvo', 'O valor alvo deve ser maior que zero'),
+  monthlyContribution: positiveCurrency('Informe o aporte mensal', 'O aporte mensal deve ser maior que zero'),
   initialSaved: currency('Informe o valor já guardado'),
   contributionDay: z.coerce.number()
     .int('Informe um dia entre 1 e 31')

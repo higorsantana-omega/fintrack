@@ -1,5 +1,6 @@
 // Mirrors the "month in period" rule of api/src/modules/goals/goal-calculations.ts.
-// Both sides are checked with the same numbers (AE1 and a day-31 goal).
+// Both sides are tested with the same cases: a January-December goal and a
+// day-31 goal whose February contribution moves to the 28th.
 
 const GOALS_TIME_ZONE = 'America/Sao_Paulo'
 
@@ -23,7 +24,7 @@ export function getMonthKey(calendarDate: Date) {
   return calendarDate.getUTCFullYear() * 12 + calendarDate.getUTCMonth()
 }
 
-export function formatMonthKey(monthKey: number) {
+function formatMonthKey(monthKey: number) {
   const year = Math.floor(monthKey / 12)
   const month = (monthKey % 12) + 1
 
@@ -39,7 +40,7 @@ function getDueDate(monthKey: number, contributionDay: number) {
 }
 
 /** Months whose due day (moved to the last day in shorter months) falls in the period. */
-export function getPeriodMonths(startDate: Date, endDate: Date, contributionDay: number) {
+function getPeriodMonths(startDate: Date, endDate: Date, contributionDay: number) {
   const months: number[] = []
 
   for (let monthKey = getMonthKey(startDate); monthKey <= getMonthKey(endDate); monthKey++) {

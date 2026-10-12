@@ -3,7 +3,7 @@ import { GoalEvolutionPoint } from '../../../../app/entities/Goal'
 import { formatCurrency } from '../../../../app/utils/formatCurrency'
 import { formatCompactCurrency } from '../../../../app/utils/formatCompactCurrency'
 import { formatMonth } from '../../../../app/utils/formatMonth'
-import { GOAL_CHART_COLORS } from '../../../constants/GoalConstants'
+import { GOAL_CHART_AXIS, GOAL_CHART_COLORS, GOAL_CHART_TOOLTIP } from '../../../constants/GoalConstants'
 
 interface GoalEvolutionChartProps {
   data: GoalEvolutionPoint[]
@@ -22,22 +22,16 @@ export function GoalEvolutionChart({ data }: GoalEvolutionChartProps) {
             <CartesianGrid vertical={false} stroke={GOAL_CHART_COLORS.grid} />
             <XAxis
               dataKey='label'
-              tickLine={false}
-              axisLine={false}
-              tick={{ fontSize: 12, fill: GOAL_CHART_COLORS.tick }}
+              {...GOAL_CHART_AXIS}
             />
             <YAxis
               width={72}
-              tickLine={false}
-              axisLine={false}
               tickFormatter={formatCompactCurrency}
-              tick={{ fontSize: 12, fill: GOAL_CHART_COLORS.tick }}
+              {...GOAL_CHART_AXIS}
             />
             <Tooltip
               formatter={(value, name) => [formatCurrency(Number(value)), name]}
-              contentStyle={{ borderRadius: 16, border: 'none', boxShadow: '0px 11px 20px 0px rgba(0,0,0,0.10)' }}
-              labelStyle={{ color: '#343A40', fontWeight: 500 }}
-              itemStyle={{ color: '#495057' }}
+              {...GOAL_CHART_TOOLTIP}
             />
             <Legend
               iconType='plainline'

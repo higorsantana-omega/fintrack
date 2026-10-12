@@ -60,9 +60,5 @@ export interface GoalReminder {
   month: string
   dueDate: string
   monthlyContribution: number
-  bankAccount: {
-    id: string
-    name: string
-    color: string
-  } | null
+  bankAccount: Goal['bankAccount']
 }

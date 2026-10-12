@@ -2,13 +2,14 @@ import { Link } from 'react-router-dom'
 import { Goal } from '../../../../app/entities/Goal'
 import { cn } from '../../../../app/utils/cn'
 import { formatCurrency } from '../../../../app/utils/formatCurrency'
+import { getGoalProgress } from '../../../../app/utils/getGoalProgress'
 
 interface GoalCardProps {
   goal: Goal
 }
 
 export function GoalCard({ goal }: GoalCardProps) {
-  const progress = Math.min(100, Math.round((goal.totalSaved / goal.targetAmount) * 100))
+  const progress = getGoalProgress(goal)
 
   return (
     <Link

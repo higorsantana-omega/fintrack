@@ -20,3 +20,15 @@ export const GOAL_CHART_COLORS = {
   grid: '#DEE2E6',
   tick: '#868E96'
 }
+
+export const GOAL_CHART_AXIS = {
+  tickLine: false,
+  axisLine: false,
+  tick: { fontSize: 12, fill: GOAL_CHART_COLORS.tick }
+}
+
+export const GOAL_CHART_TOOLTIP = {
+  contentStyle: { borderRadius: 16, border: 'none', boxShadow: '0px 11px 20px 0px rgba(0,0,0,0.10)' },
+  labelStyle: { color: '#343A40', fontWeight: 500 },
+  itemStyle: { color: '#495057' }
+}

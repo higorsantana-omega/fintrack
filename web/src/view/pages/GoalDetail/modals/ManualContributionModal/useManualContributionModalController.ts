@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { positiveCurrency } from '../../../../../app/utils/goalForm'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -9,10 +10,7 @@ import { currencyStringToNumber } from '../../../../../app/utils/currencyStringT
 import { invalidateMoneyQueries } from '../../../../../app/utils/invalidateMoneyQueries'
 
 const schema = z.object({
-  value: z.union([
-    z.string().nonempty('Informe o valor'),
-    z.number()
-  ]).refine(value => currencyStringToNumber(value) > 0, 'Informe um valor maior que zero'),
+  value: positiveCurrency('Informe o valor', 'Informe um valor maior que zero'),
   date: z.date()
 })
 

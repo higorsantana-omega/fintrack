@@ -4,6 +4,7 @@ import { cn } from '../../../app/utils/cn'
 import { formatCurrency } from '../../../app/utils/formatCurrency'
 import { formatDate } from '../../../app/utils/formatDate'
 import { calendarDateToLocal } from '../../../app/utils/goalForm'
+import { getGoalProgress } from '../../../app/utils/getGoalProgress'
 import { Button } from '../../components/Button'
 import { Spinner } from '../../components/Spinner'
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal'
@@ -42,7 +43,7 @@ export function GoalDetail() {
     )
   }
 
-  const progress = Math.min(100, Math.round((goal.totalSaved / goal.targetAmount) * 100))
+  const progress = getGoalProgress(goal)
   const shortfall = Math.max(0, goal.targetAmount - goal.totalSaved)
   const showProjection = (goal.status === 'IN_PROGRESS' || goal.status === 'SCHEDULED') && planning
 

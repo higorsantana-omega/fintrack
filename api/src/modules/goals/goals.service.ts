@@ -42,6 +42,8 @@ import {
 } from './goal-calculations';
 
 const NOT_PENDING_MESSAGE = 'This month is not pending for this goal.';
+const HAS_CONTRIBUTIONS_MESSAGE =
+  'A goal with contributions can only be archived.';
 
 function isPrismaError(error: unknown, code: string) {
   return (
@@ -163,18 +165,14 @@ export class GoalsService {
     this.assertNotArchived(goal);
 
     if (goal.transactions.length > 0) {
-      throw new ConflictException(
-        'A goal with contributions can only be archived.',
-      );
+      throw new ConflictException(HAS_CONTRIBUTIONS_MESSAGE);
     }
 
     try {
       await this.goalsRepository.delete(goalId);
     } catch (error) {
       if (isPrismaError(error, 'P2003')) {
-        throw new ConflictException(
-          'A goal with contributions can only be archived.',
-        );
+        throw new ConflictException(HAS_CONTRIBUTIONS_MESSAGE);
       }
       throw error;
     }
