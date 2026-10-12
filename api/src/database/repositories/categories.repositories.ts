@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { TransactionType } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
@@ -8,6 +9,12 @@ export class CategoriesRepository {
   async findMany(userId: string) {
     return this.prismaService.category.findMany({
       where: { userId },
+    });
+  }
+
+  async findByIcon(userId: string, icon: string, type: TransactionType) {
+    return this.prismaService.category.findFirst({
+      where: { userId, icon, type },
     });
   }
 

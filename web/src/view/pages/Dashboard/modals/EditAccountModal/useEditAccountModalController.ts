@@ -7,6 +7,8 @@ import { bankAccountsService } from '../../../../../app/services/bankAccountsSer
 import { currencyStringToNumber } from '../../../../../app/utils/currencyStringToNumber'
 import toast from 'react-hot-toast'
 import { useState } from 'react'
+import { invalidateMoneyQueries } from '../../../../../app/utils/invalidateMoneyQueries'
+import { getApiErrorPayload } from '../../../../../app/utils/getApiErrorPayload'
 
 const schema = z.object({
   initialBalance: z.union([
@@ -76,10 +78,18 @@ export function useEditAccountModalController() {
     try {
       await removeAccount(accountBeingEdited!.id)
 
-      queryClient.invalidateQueries({ queryKey: ['bankAccounts'] })
+      invalidateMoneyQueries(queryClient)
       toast.success('Conta deletada com sucesso.')
       toggleOpenEditAccountModal()
-    } catch {
+    } catch (error) {
+      const { status, goals } = getApiErrorPayload(error)
+
+      if (status === 409 && goals?.length) {
+        toast.error(`Esta conta está ligada às metas: ${goals.join(', ')}.`)
+        setIsDeleteModalOpen(false)
+        return
+      }
+
       toast.error('Erro ao deletar a conta')
     }
   }

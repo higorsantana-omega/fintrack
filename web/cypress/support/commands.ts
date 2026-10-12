@@ -15,6 +15,9 @@
 declare namespace Cypress {
   interface Chainable {
     register(name: string, email: string, password: string): Chainable
+    apiRequest(method: string, path: string, body?: object): Chainable<Cypress.Response<{ id: string }>>
+    createBankAccount(name: string, initialBalance?: number): Chainable<string>
+    createGoal(params: object): Chainable<string>
   }
 }
 
@@ -25,4 +28,35 @@ Cypress.Commands.add('register', (name, email, password) => {
   cy.get('#email').type(email)
   cy.get('#password').type(password)
   cy.get('button').contains('Criar conta').click()
+})
+
+Cypress.Commands.add('apiRequest', (method, path, body) => {
+  return cy.window().its('localStorage').invoke('getItem', '@fintrack:accessToken').then(token => {
+    return cy.request({
+      method,
+      url: `http://localhost:3000${path}`,
+      body,
+      headers: { Authorization: `Bearer ${token}` },
+      failOnStatusCode: false
+    })
+  })
+})
+
+Cypress.Commands.add('createBankAccount', (name, initialBalance = 1000) => {
+  return cy.apiRequest('POST', '/bank-accounts', {
+    name,
+    initialBalance,
+    type: 'CHECKING',
+    color: '#7950F2'
+  }).then(response => {
+    expect(response.status).to.eq(201)
+    return response.body.id
+  })
+})
+
+Cypress.Commands.add('createGoal', params => {
+  return cy.apiRequest('POST', '/goals', params).then(response => {
+    expect(response.status).to.eq(201)
+    return response.body.id
+  })
 })

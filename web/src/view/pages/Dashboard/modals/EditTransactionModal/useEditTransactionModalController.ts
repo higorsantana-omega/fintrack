@@ -9,6 +9,7 @@ import { transactionsService } from '../../../../../app/services/transactionsSer
 import toast from 'react-hot-toast'
 import { currencyStringToNumber } from '../../../../../app/utils/currencyStringToNumber'
 import { Transaction } from '../../../../../app/entities/Transaction'
+import { invalidateMoneyQueries } from '../../../../../app/utils/invalidateMoneyQueries'
 
 const schema = z.object({
   value: z.union([
@@ -69,8 +70,7 @@ export function useEditTransactionModalController(
         date: data.date.toISOString()
       })
 
-      queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      queryClient.invalidateQueries({ queryKey: ['bankAccounts'] })
+      invalidateMoneyQueries(queryClient)
 
       toast.success(
         transaction!.type === 'EXPENSE'
@@ -96,8 +96,7 @@ export function useEditTransactionModalController(
     try {
       await removeTransaction(transaction!.id)
 
-      queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      queryClient.invalidateQueries({ queryKey: ['bankAccounts'] })
+      invalidateMoneyQueries(queryClient)
   
       toast.success(transaction!.type === 'EXPENSE'
       ? 'A despesa foi deletada com sucesso!'

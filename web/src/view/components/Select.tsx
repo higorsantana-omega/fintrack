@@ -4,6 +4,7 @@ import { cn } from '../../app/utils/cn'
 import { useState } from 'react'
 
 interface SelectProps {
+  id?: string
   className?: string
   error?: string
   placeholder?: string
@@ -15,7 +16,7 @@ interface SelectProps {
   value?: string
 }
 
-export function Select({ className, error, placeholder, options, onChange, value }: SelectProps) {
+export function Select({ id, className, error, placeholder, options, onChange, value }: SelectProps) {
   const [selectedValue, setSelectedValue] = useState(value ?? '')
 
   function handleSelect(value: string) {
@@ -34,6 +35,7 @@ export function Select({ className, error, placeholder, options, onChange, value
         </label>
         <RdxSelect.Root onValueChange={handleSelect} value={value}>
           <RdxSelect.Trigger
+            id={id}
             className={cn(
               'bg-white w-full pt-4 relative text-left rounded-lg border border-gray-500 px-3 h-[52px] text-gray-800 focus:border-gray-800 transition-all outline-none',
               error && '!border-red-900',

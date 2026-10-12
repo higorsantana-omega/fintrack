@@ -1,6 +1,6 @@
 import { createContext, useCallback, useEffect, useState } from 'react'
 import { localStorageKeys } from '../config/localStorageKeys'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { usersService } from '../services/usersService'
 import toast from 'react-hot-toast'
 import { PageLoader } from '../../view/components/PageLoader'
@@ -21,7 +21,9 @@ export function AuthProvider({ children }: { children: React.ReactNode}) {
     return !!storedAccessToken
   })
 
-  const { isError, isFetching, isSuccess, remove, data } = useQuery({
+  const queryClient = useQueryClient()
+
+  const { isError, isFetching, isSuccess, data } = useQuery({
     queryKey: ['users', 'me'],
     queryFn: () => {
       return usersService.me()
@@ -37,9 +39,9 @@ export function AuthProvider({ children }: { children: React.ReactNode}) {
 
   const signout = useCallback(() => {
     localStorage.removeItem(localStorageKeys.ACCESS_TOKEN)
-    remove()
+    queryClient.clear()
     setSignedIn(false)
-  }, [remove])
+  }, [queryClient])
 
   useEffect(() => {
     if (isError) {

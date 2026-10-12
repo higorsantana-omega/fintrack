@@ -1,20 +1,25 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, HttpStatus, Injectable } from '@nestjs/common';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 import { BankAccountsRepository } from 'src/database/repositories/bank-accounts.repositories';
 import { ValidateBankAccountOwnershipService } from './validate-bank-account-ownership.service';
+import { GoalsRepository } from 'src/database/repositories/goals.repositories';
 
 @Injectable()
 export class BankAccountsService {
   constructor(
     private readonly bankAccountsRepository: BankAccountsRepository,
     private readonly validateBankAccountOwnershipService: ValidateBankAccountOwnershipService,
+    private readonly goalsRepository: GoalsRepository,
   ) {}
 
   create(userId: string, createBankAccountDto: CreateBankAccountDto) {
     return this.bankAccountsRepository.create({
-      ...createBankAccountDto,
       userId,
+      name: createBankAccountDto.name,
+      initialBalance: createBankAccountDto.initialBalance,
+      type: createBankAccountDto.type,
+      color: createBankAccountDto.color,
     });
   }
 
@@ -47,10 +52,12 @@ export class BankAccountsService {
       bankAccountId,
     );
 
-    return this.bankAccountsRepository.update(
-      bankAccountId,
-      updateBankAccountDto,
-    );
+    return this.bankAccountsRepository.update(bankAccountId, {
+      name: updateBankAccountDto.name,
+      initialBalance: updateBankAccountDto.initialBalance,
+      type: updateBankAccountDto.type,
+      color: updateBankAccountDto.color,
+    });
   }
 
   async remove(userId: string, bankAccountId: string) {
@@ -58,6 +65,21 @@ export class BankAccountsService {
       userId,
       bankAccountId,
     );
+
+    const linkedGoals =
+      await this.goalsRepository.findActiveGoalsLinkedToBankAccount(
+        userId,
+        bankAccountId,
+      );
+
+    if (linkedGoals.length > 0) {
+      throw new ConflictException({
+        statusCode: HttpStatus.CONFLICT,
+        error: 'Conflict',
+        message: 'This bank account is linked to goals that are not archived.',
+        goals: linkedGoals.map((goal) => goal.name),
+      });
+    }
 
     await this.bankAccountsRepository.delete(bankAccountId);
 

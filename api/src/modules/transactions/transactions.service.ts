@@ -25,8 +25,13 @@ export class TransactionsService {
     await this.validateEntitiesOwnership(userId, createTransactionDto);
 
     return this.transactionsRepository.create({
-      ...createTransactionDto,
       userId,
+      bankAccountId: createTransactionDto.bankAccountId,
+      categoryId: createTransactionDto.categoryId,
+      name: createTransactionDto.name,
+      value: createTransactionDto.value,
+      date: createTransactionDto.date,
+      type: createTransactionDto.type,
     });
   }
 
@@ -54,10 +59,14 @@ export class TransactionsService {
       transactionId,
     });
 
-    return this.transactionsRepository.update(
-      transactionId,
-      updateTransactionDto,
-    );
+    return this.transactionsRepository.update(transactionId, {
+      bankAccountId: updateTransactionDto.bankAccountId,
+      categoryId: updateTransactionDto.categoryId,
+      name: updateTransactionDto.name,
+      value: updateTransactionDto.value,
+      date: updateTransactionDto.date,
+      type: updateTransactionDto.type,
+    });
   }
 
   async remove(userId: string, transactionId: string) {
@@ -88,6 +97,7 @@ export class TransactionsService {
 
     if (transactionId) {
       const isOwner = await this.transactionsRepository.findFirst(
+        userId,
         transaction.transactionId,
       );
       if (!isOwner) throw new NotFoundException('Transaction not found.');
