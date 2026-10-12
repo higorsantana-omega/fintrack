@@ -22,7 +22,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [isNewAccountModalOpen, setIsNewAccountModalOpen] = useState(false)
   const [isNewTransactionModalOpen, setIsTransactionModalOpen] = useState(false)
   const [newTransactionType, setNewTransactionType] = useState<'INCOME' | 'EXPENSE' | null>(null)
-  const [isEditAccountModalOpen, setIsEditAccountModalOpen] = useState(true)
+  const [isEditAccountModalOpen, setIsEditAccountModalOpen] = useState(false)
   const [accountBeingEdited, setAccountBeingEdited] = useState<null | BankAccount>(null)
 
   const toggleValueVisibility = useCallback(() => {

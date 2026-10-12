@@ -9,7 +9,7 @@ interface AccountCardProps {
 }
 
 export function AccountCard ({ data }: AccountCardProps) {
-  const { color, name, currentBalance, type } = data
+  const { color, name, currentBalance } = data
   const { areValuesVisible, toggleOpenEditAccountModal } = useDashboard()
 
   return (
