@@ -22,6 +22,7 @@ import { ArchiveGoalDto } from './dto/archive-goal.dto';
 import {
   CONTRIBUTION_NAME_PREFIX,
   GOAL_CATEGORY_ICON,
+  MAX_GOAL_PERIOD_MONTHS,
   WITHDRAWAL_NAME_PREFIX,
 } from './goals.constants';
 import {
@@ -30,6 +31,7 @@ import {
   getEvolutionSeries,
   getGoalStatus,
   getGoalsSummary,
+  getMonthKey,
   getMonthStart,
   getPendingMonths,
   getResolvedMonths,
@@ -329,6 +331,15 @@ export class GoalsService {
     if (endDate < startDate) {
       throw new BadRequestException(
         'The end date must not be before the start date.',
+      );
+    }
+
+    if (
+      getMonthKey(endDate) - getMonthKey(startDate) + 1 >
+      MAX_GOAL_PERIOD_MONTHS
+    ) {
+      throw new BadRequestException(
+        `The goal period must not exceed ${MAX_GOAL_PERIOD_MONTHS} months.`,
       );
     }
 

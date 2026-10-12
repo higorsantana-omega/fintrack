@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { positiveCurrency } from '../../../../../app/utils/goalForm'
+import { positiveCurrency, toCalendarNoonIso } from '../../../../../app/utils/goalForm'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -37,7 +37,7 @@ export function useManualContributionModalController(goal: GoalDetail, onClose: 
       await mutateAsync({
         goalId: goal.id,
         value: currencyStringToNumber(data.value),
-        date: data.date.toISOString()
+        date: toCalendarNoonIso(data.date)
       })
 
       invalidateMoneyQueries(queryClient)

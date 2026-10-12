@@ -189,25 +189,41 @@ export function getEvolutionSeries(
 ): EvolutionPoint[] {
   const currentMonth = getMonthKey(today);
   const periodMonths = getPeriodMonths(goal);
-  const contributions = getContributions(goal);
+  const contributions = getContributions(goal)
+    .map((contribution) => ({
+      monthKey: getMonthKey(contribution.date),
+      cents: toCents(contribution.value),
+    }))
+    .sort((a, b) => a.monthKey - b.monthKey);
   const series: EvolutionPoint[] = [];
+
+  // Both lists are sorted by month, so each is consumed once while walking.
+  let dueMonths = 0;
+  let nextContribution = 0;
+  let actualCents = toCents(goal.initialSaved);
 
   for (
     let monthKey = getMonthKey(goal.startDate);
     monthKey <= getMonthKey(goal.endDate);
     monthKey++
   ) {
-    const dueMonths = periodMonths.filter((due) => due <= monthKey).length;
+    while (
+      dueMonths < periodMonths.length &&
+      periodMonths[dueMonths] <= monthKey
+    ) {
+      dueMonths++;
+    }
+    while (
+      nextContribution < contributions.length &&
+      contributions[nextContribution].monthKey <= monthKey
+    ) {
+      actualCents += contributions[nextContribution].cents;
+      nextContribution++;
+    }
+
     const plannedCents =
       toCents(goal.initialSaved) +
       toCents(goal.monthlyContribution) * dueMonths;
-
-    const actualCents = contributions
-      .filter((contribution) => getMonthKey(contribution.date) <= monthKey)
-      .reduce(
-        (total, contribution) => total + toCents(contribution.value),
-        toCents(goal.initialSaved),
-      );
 
     series.push({
       month: formatMonthKey(monthKey),

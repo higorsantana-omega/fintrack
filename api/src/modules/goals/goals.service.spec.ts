@@ -252,6 +252,24 @@ describe('GoalsService', () => {
       expect(goalsRepository.create).not.toHaveBeenCalled();
     });
 
+    it('rejects a period longer than 50 years with 400', async () => {
+      await expect(
+        service.create(ANA, {
+          ...goalBody,
+          startDate: '0200-01-02T12:00:00.000Z',
+          endDate: '9999-12-31T12:00:00.000Z',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(goalsRepository.create).not.toHaveBeenCalled();
+
+      await service.create(ANA, {
+        ...goalBody,
+        startDate: '2027-01-01T12:00:00.000Z',
+        endDate: '2076-12-31T12:00:00.000Z',
+      });
+      expect(goalsRepository.create).toHaveBeenCalledTimes(1);
+    });
+
     it('stores the start and end as São Paulo calendar days', async () => {
       await service.create(ANA, {
         ...goalBody,

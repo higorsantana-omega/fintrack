@@ -1,7 +1,7 @@
 import { Control, Controller, FieldErrors, UseFormRegister, UseFormSetValue, useWatch } from 'react-hook-form'
 import { BankAccount } from '../../app/entities/BankAccount'
 import { GoalFormData } from '../../app/utils/goalForm'
-import { getGoalPlanning, getMonthKey, toGoalsCalendarDate } from '../../app/utils/goalPlanning'
+import { getGoalPlanning, getMonthKey, localDateToCalendarDate, toGoalsCalendarDate } from '../../app/utils/goalPlanning'
 import { currencyStringToNumber } from '../../app/utils/currencyStringToNumber'
 import { formatCurrency } from '../../app/utils/formatCurrency'
 import { Input } from './Input'
@@ -36,8 +36,8 @@ function usePlanning({ control, contributionsTotal, createdAt, resolvedMonths }:
   if (!Number.isInteger(day) || day < 1 || day > 31) return null
   if (!startDate || !endDate) return null
 
-  const start = toGoalsCalendarDate(startDate)
-  const end = toGoalsCalendarDate(endDate)
+  const start = localDateToCalendarDate(startDate)
+  const end = localDateToCalendarDate(endDate)
   if (end < start) return null
 
   return getGoalPlanning({
@@ -161,13 +161,15 @@ export function GoalFormFields(props: GoalFormFieldsProps) {
             <span>
               Aporte sugerido: <strong id='goal-suggestion'>{formatCurrency(planning.suggestion)}</strong>
             </span>
-            <button
-              type='button'
-              className='text-teal-900 font-medium hover:underline'
-              onClick={() => setValue('monthlyContribution', planning.suggestion!, { shouldValidate: true })}
-            >
-              Usar sugestão
-            </button>
+            {planning.suggestion > 0 && (
+              <button
+                type='button'
+                className='text-teal-900 font-medium hover:underline'
+                onClick={() => setValue('monthlyContribution', planning.suggestion!, { shouldValidate: true })}
+              >
+                Usar sugestão
+              </button>
+            )}
           </div>
         )}
 

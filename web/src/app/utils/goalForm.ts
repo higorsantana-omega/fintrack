@@ -1,7 +1,10 @@
 import { z } from 'zod'
 import { GoalParams } from '../services/goalsService'
 import { currencyStringToNumber } from './currencyStringToNumber'
-import { toGoalsCalendarDate } from './goalPlanning'
+import { getMonthKey, localDateToCalendarDate } from './goalPlanning'
+
+// Mirrors MAX_GOAL_PERIOD_MONTHS in the API (50 years).
+const MAX_GOAL_PERIOD_MONTHS = 600
 
 const currency = (requiredMessage: string) => z.union([
   z.string().nonempty(requiredMessage),
@@ -24,8 +27,11 @@ export const goalFormSchema = z.object({
   endDate: z.date(),
   bankAccountId: z.string().nonempty('Informe a conta de origem')
 }).refine(
-  data => toGoalsCalendarDate(data.endDate) >= toGoalsCalendarDate(data.startDate),
+  data => localDateToCalendarDate(data.endDate) >= localDateToCalendarDate(data.startDate),
   { message: 'A data final não pode ser anterior à data de início', path: ['endDate'] }
+).refine(
+  data => getMonthKey(localDateToCalendarDate(data.endDate)) - getMonthKey(localDateToCalendarDate(data.startDate)) + 1 <= MAX_GOAL_PERIOD_MONTHS,
+  { message: 'O período da meta não pode passar de 50 anos', path: ['endDate'] }
 )
 
 export type GoalFormData = z.infer<typeof goalFormSchema>
@@ -37,10 +43,19 @@ export function toGoalParams(data: GoalFormData): GoalParams {
     monthlyContribution: currencyStringToNumber(data.monthlyContribution),
     initialSaved: currencyStringToNumber(data.initialSaved),
     contributionDay: data.contributionDay,
-    startDate: data.startDate.toISOString(),
-    endDate: data.endDate.toISOString(),
+    startDate: toCalendarNoonIso(data.startDate),
+    endDate: toCalendarNoonIso(data.endDate),
     bankAccountId: data.bankAccountId
   }
+}
+
+/**
+ * The day picked in a date picker, sent as that calendar day at noon UTC.
+ * Local midnight would become the previous day in São Paulo for browsers
+ * east of UTC-3; noon UTC is the same São Paulo day from any time zone.
+ */
+export function toCalendarNoonIso(date: Date) {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12)).toISOString()
 }
 
 /** A calendar date from the API (UTC midnight) as a local date for the date pickers. */

@@ -20,6 +20,11 @@ export function toGoalsCalendarDate(instant: Date) {
   return new Date(Date.UTC(get('year'), get('month') - 1, get('day')))
 }
 
+/** The local day shown by a date picker, as a UTC-midnight calendar date. */
+export function localDateToCalendarDate(date: Date) {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+}
+
 export function getMonthKey(calendarDate: Date) {
   return calendarDate.getUTCFullYear() * 12 + calendarDate.getUTCMonth()
 }

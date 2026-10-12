@@ -128,6 +128,10 @@ describe('Metas', () => {
     cy.get('#contributionDay').type('31')
 
     cy.get('#goal-suggestion').invoke('text').should('match', brl('1.000,00'))
+
+    cy.get('#initialSaved').clear().type('3000')
+    cy.get('#goal-suggestion').invoke('text').should('match', brl('0,00'))
+    cy.get('button').contains('Usar sugestão').should('not.exist')
   })
 
   it('shows the current month reminder and records the contribution when confirmed (F2)', () => {
