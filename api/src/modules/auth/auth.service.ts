@@ -8,6 +8,10 @@ import { UsersRepository } from 'src/database/repositories/users.repositories';
 import { compare, hash } from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { SignupDto } from './dto/signup.dto';
+import {
+  GOAL_CATEGORY_ICON,
+  GOAL_CATEGORY_NAME,
+} from '../goals/goals.constants';
 
 @Injectable()
 export class AuthService {
@@ -49,6 +53,16 @@ export class AuthService {
             data: [
               { name: 'Salary', icon: 'salary', type: 'INCOME' },
               { name: 'House', icon: 'home', type: 'EXPENSE' },
+              {
+                name: GOAL_CATEGORY_NAME,
+                icon: GOAL_CATEGORY_ICON,
+                type: 'EXPENSE',
+              },
+              {
+                name: GOAL_CATEGORY_NAME,
+                icon: GOAL_CATEGORY_ICON,
+                type: 'INCOME',
+              },
             ],
           },
         },
