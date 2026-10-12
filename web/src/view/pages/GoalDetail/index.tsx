@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowLeftIcon } from '@radix-ui/react-icons'
+import { ArchiveIcon, ArrowLeftIcon, Pencil1Icon, PlusIcon } from '@radix-ui/react-icons'
 import { cn } from '../../../app/utils/cn'
 import { formatCurrency } from '../../../app/utils/formatCurrency'
 import { formatDate } from '../../../app/utils/formatDate'
@@ -9,6 +9,7 @@ import { Button } from '../../components/Button'
 import { Spinner } from '../../components/Spinner'
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal'
 import { GOAL_STATUS_LABELS } from '../../constants/GoalConstants'
+import { GoalActionButton } from './components/GoalActionButton'
 import { GoalEvolutionChart } from './components/GoalEvolutionChart'
 import { GoalHistory } from './components/GoalHistory'
 import { EditGoalModal } from './modals/EditGoalModal'
@@ -58,7 +59,7 @@ export function GoalDetail() {
           <div className='space-y-1'>
             <div className='flex items-center gap-2 flex-wrap'>
               <h1 id='goal-name' className='text-2xl tracking-[-1px] font-bold'>{goal.name}</h1>
-              <span id='goal-status' className='text-xs font-medium rounded-full px-2 py-1 bg-white/15'>
+              <span id='goal-status' className='text-xs font-medium rounded-full px-2 py-1 bg-white/[0.15]'>
                 {GOAL_STATUS_LABELS[goal.status]}
               </span>
             </div>
@@ -69,20 +70,24 @@ export function GoalDetail() {
             </p>
           </div>
 
-          <div className='flex flex-wrap gap-2'>
+          <div className='flex flex-wrap gap-2 md:justify-end md:shrink-0'>
             {canContribute && (
-              <Button className='h-10 bg-white text-teal-900 hover:bg-teal-50' onClick={openContributionModal}>
-                Novo aporte
-              </Button>
+              <GoalActionButton
+                id='goal-action-contribute'
+                label='Novo aporte'
+                icon={PlusIcon}
+                primary
+                onClick={openContributionModal}
+              />
             )}
             {canEdit && (
-              <Button className='h-10 bg-white/15 hover:bg-white/25' onClick={openEditModal}>Editar</Button>
+              <GoalActionButton id='goal-action-edit' label='Editar' icon={Pencil1Icon} onClick={openEditModal} />
             )}
             {canArchive && (
-              <Button className='h-10 bg-white/15 hover:bg-white/25' onClick={openArchiveModal}>Arquivar</Button>
+              <GoalActionButton id='goal-action-archive' label='Arquivar' icon={ArchiveIcon} onClick={openArchiveModal} />
             )}
             {canDelete && (
-              <Button className='h-10 bg-white/15 hover:bg-red-900' onClick={openDeleteModal}>Excluir</Button>
+              <Button className='h-10 bg-white/[0.15] hover:bg-red-900' onClick={openDeleteModal}>Excluir</Button>
             )}
           </div>
         </header>

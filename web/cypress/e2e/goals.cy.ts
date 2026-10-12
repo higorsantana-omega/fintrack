@@ -252,7 +252,7 @@ describe('Metas', () => {
         resolveCurrentMonth(goalId, { action: 'CONFIRM', value: 500 })
 
         cy.visit(`http://localhost:5173/metas/${goalId}`)
-        cy.get('button').contains('Arquivar').click()
+        cy.get('#goal-action-archive').click()
         cy.get('#archive-return').click()
         cy.contains('Meta arquivada e dinheiro devolvido às contas.')
         cy.get('#goal-status').should('have.text', 'Arquivada')
@@ -340,7 +340,7 @@ describe('Metas', () => {
       })
     })
 
-    cy.get('button').contains('Novo aporte').click()
+    cy.get('#goal-action-contribute').click()
     cy.get('#contributionValue').clear().type('250')
     cy.get('button').contains('Registrar aporte').click()
     cy.contains('Aporte registrado!')
@@ -364,7 +364,7 @@ describe('Metas', () => {
     })
 
     cy.get('#goal-status').should('have.text', 'Agendada')
-    cy.get('main').contains('button', 'Novo aporte').should('not.exist')
+    cy.get('#goal-action-contribute').should('not.exist')
     cy.get('button').contains('Excluir').click()
     cy.get('button').contains('Sim, desejo excluir').click()
     cy.location('pathname').should('eq', '/metas')
