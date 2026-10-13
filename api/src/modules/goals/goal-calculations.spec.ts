@@ -1,21 +1,23 @@
 import {
   GoalSnapshot,
   GoalTransaction,
-  formatMonthKey,
-  getDueDate,
   getEvolutionSeries,
   getGoalStatus,
   getGoalsSummary,
-  getMonthKey,
   getPendingMonths,
   getPeriodMonths,
   getResolvedMonths,
   getSavedByMonthSeries,
-  getTodayInGoalsTimeZone,
   getTotalSaved,
   getWithdrawalsByAccount,
-  toGoalsCalendarDate,
 } from './goal-calculations';
+import {
+  formatMonthKey,
+  getDayInMonth as getDueDate,
+  getMonthKey,
+  getToday as getTodayInGoalsTimeZone,
+  toCalendarDate as toGoalsCalendarDate,
+} from 'src/shared/calendar';
 
 const day = (value: string) => new Date(`${value}T00:00:00.000Z`);
 const months = (keys: number[]) => keys.map(formatMonthKey);

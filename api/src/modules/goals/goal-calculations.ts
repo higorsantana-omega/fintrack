@@ -1,4 +1,11 @@
-import { GOALS_TIME_ZONE } from './goals.constants';
+import {
+  formatMonthKey,
+  fromCents,
+  getDayInMonth,
+  getMonthKey,
+  toCalendarDate,
+  toCents,
+} from 'src/shared/calendar';
 
 export type GoalStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'ARCHIVED';
 
@@ -34,72 +41,8 @@ export type SavedByMonthPoint = { month: string; saved: number };
 
 export type Withdrawal = { bankAccountId: string; value: number };
 
-const calendarFormatter = new Intl.DateTimeFormat('en-CA', {
-  timeZone: GOALS_TIME_ZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
-
-export const toCents = (value: number) => Math.round(value * 100);
-export const fromCents = (cents: number) => cents / 100;
-
-/** Calendar day of an instant in the goals time zone, as a UTC-midnight date. */
-export function toGoalsCalendarDate(instant: Date) {
-  const parts = calendarFormatter.formatToParts(instant);
-  const get = (type: string) =>
-    Number(parts.find((part) => part.type === type).value);
-
-  return new Date(Date.UTC(get('year'), get('month') - 1, get('day')));
-}
-
-export function getTodayInGoalsTimeZone(now = new Date()) {
-  return toGoalsCalendarDate(now);
-}
-
-export function toNoonUtc(calendarDate: Date) {
-  return new Date(
-    Date.UTC(
-      calendarDate.getUTCFullYear(),
-      calendarDate.getUTCMonth(),
-      calendarDate.getUTCDate(),
-      12,
-    ),
-  );
-}
-
-export function getMonthKey(date: Date) {
-  return date.getUTCFullYear() * 12 + date.getUTCMonth();
-}
-
-export function formatMonthKey(monthKey: number) {
-  const year = Math.floor(monthKey / 12);
-  const month = (monthKey % 12) + 1;
-
-  return `${year}-${String(month).padStart(2, '0')}`;
-}
-
-export function parseMonthKey(value: string) {
-  const [year, month] = value.split('-').map(Number);
-
-  return year * 12 + (month - 1);
-}
-
-export function getMonthStart(monthKey: number) {
-  return new Date(Date.UTC(Math.floor(monthKey / 12), monthKey % 12, 1));
-}
-
-/** Contribution day of the month, moved to the last day in shorter months. */
-export function getDueDate(monthKey: number, contributionDay: number) {
-  const year = Math.floor(monthKey / 12);
-  const month = monthKey % 12;
-  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-
-  return new Date(Date.UTC(year, month, Math.min(contributionDay, lastDay)));
-}
-
 export function getCreationMonth(goal: Pick<GoalSnapshot, 'createdAt'>) {
-  return getMonthKey(toGoalsCalendarDate(goal.createdAt));
+  return getMonthKey(toCalendarDate(goal.createdAt));
 }
 
 /** Months whose due day falls between the start and end dates, inclusive. */
@@ -113,7 +56,7 @@ export function getPeriodMonths(
     monthKey <= getMonthKey(goal.endDate);
     monthKey++
   ) {
-    const dueDate = getDueDate(monthKey, goal.contributionDay);
+    const dueDate = getDayInMonth(monthKey, goal.contributionDay);
 
     if (dueDate >= goal.startDate && dueDate <= goal.endDate) {
       months.push(monthKey);
@@ -179,7 +122,7 @@ export function getPendingMonths(goal: GoalSnapshot, today: Date) {
     (monthKey) =>
       monthKey >= creationMonth &&
       !resolved.has(monthKey) &&
-      today >= getDueDate(monthKey, goal.contributionDay),
+      today >= getDayInMonth(monthKey, goal.contributionDay),
   );
 }
 
