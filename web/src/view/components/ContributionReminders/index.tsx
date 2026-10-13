@@ -5,7 +5,12 @@ import { Button } from '../Button'
 import { InputCurrency } from '../InputCurrency'
 import { useContributionRemindersController } from './useContributionRemindersController'
 
-export function ContributionReminders() {
+interface ContributionRemindersProps {
+  /** Holds the goal reminders while the invoice reminders run (R34). */
+  isHeld?: boolean
+}
+
+export function ContributionReminders({ isHeld = false }: ContributionRemindersProps) {
   const {
     currentReminder,
     control,
@@ -18,7 +23,7 @@ export function ContributionReminders() {
     isAnswering
   } = useContributionRemindersController()
 
-  if (!currentReminder) return null
+  if (isHeld || !currentReminder) return null
 
   return (
     <Modal
