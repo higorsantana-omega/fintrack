@@ -74,8 +74,12 @@ export function useNewTransactionModalController() {
     }
   })
 
+  // Card invoices are paid from the card screen, which links the payment to the
+  // invoice, so "Fatura de cartão" is left out of a new transaction.
   const categories = useMemo(() => {
-    return categoriesList.filter(category => category.type === newTransactionType)
+    return categoriesList.filter(category => (
+      category.type === newTransactionType && category.icon !== 'credit-card'
+    ))
   }, [categoriesList, newTransactionType])
 
   return { isLoading, mutateAsync, accounts, categories, handleSubmit, register, errors, control, reset, toggleCloseTransactionModal, isNewTransactionModalOpen, newTransactionType, toggleOpenTransactionModal }

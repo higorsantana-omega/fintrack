@@ -1,3 +1,4 @@
+import { ReactNode } from 'react'
 import { TrashIcon } from '@radix-ui/react-icons'
 import { Modal } from './Modal'
 import { Button } from './Button'
@@ -7,7 +8,7 @@ interface ConfirmDeleteModalProps {
   onClose(): void
   isLoading: boolean
   title: string
-  description?: string
+  description?: ReactNode
 }
 
 export function ConfirmDeleteModal({ onClose, onConfirm, isLoading, title, description }: ConfirmDeleteModalProps) {
@@ -20,15 +21,15 @@ export function ConfirmDeleteModal({ onClose, onConfirm, isLoading, title, descr
 
         <p className='w-[180px] text-gray-800 tracking-[-0.5px] font-bold'>{title}</p>
         {description && (
-          <p className='tracking-[-0.5px] text-gray-800'>
+          <div className='tracking-[-0.5px] text-gray-800'>
             {description}
-          </p>
+          </div>
         )}
       </div>
 
       <div className='mt-10 space-y-4'>
         <Button onClick={onConfirm} isLoading={isLoading} className='w-full' danger>Sim, desejo excluir</Button>
-        <Button className='w-full' disabled={isLoading} ghost>Cancelar</Button>
+        <Button onClick={onClose} className='w-full' disabled={isLoading} ghost>Cancelar</Button>
       </div>
     </Modal>
   )

@@ -22,6 +22,8 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
+type ReopenedInvoice = NonNullable<ReturnType<typeof getApiErrorPayload>['invoices']>[number]
+
 export function useEditAccountModalController() {
   const {
     isEditAccountModalOpen,
@@ -45,10 +47,13 @@ export function useEditAccountModalController() {
   })
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [reopenedInvoices, setReopenedInvoices] = useState<ReopenedInvoice[]>([])
 
   const queryClient = useQueryClient()
   const { isLoading, mutateAsync: updateAccount } = useMutation(bankAccountsService.update)
-  const { isLoading: isLoadingDelete, mutateAsync: removeAccount } = useMutation(bankAccountsService.remove)
+  const { isLoading: isLoadingDelete, mutateAsync: removeAccount } = useMutation(
+    ({ id, confirm }: { id: string, confirm: boolean }) => bankAccountsService.remove(id, confirm)
+  )
 
   const handleSubmit = hookFormSubmit(async data => {
     try {
@@ -74,19 +79,33 @@ export function useEditAccountModalController() {
     setIsDeleteModalOpen(false)
   }
 
-  async function handleDeleteAccount() {
+  function handleCloseReopenedInvoicesModal() {
+    setReopenedInvoices([])
+  }
+
+  // Without `confirm` the API answers 409 with the card invoices that would have
+  // a balance again without this account's payments; the user confirms them in
+  // a second step.
+  async function deleteAccount(confirm: boolean) {
     try {
-      await removeAccount(accountBeingEdited!.id)
+      await removeAccount({ id: accountBeingEdited!.id, confirm })
 
       invalidateMoneyQueries(queryClient)
       toast.success('Conta deletada com sucesso.')
       toggleOpenEditAccountModal()
     } catch (error) {
-      const { status, goals } = getApiErrorPayload(error)
+      const { status, goals, invoices } = getApiErrorPayload(error)
 
       if (status === 409 && goals?.length) {
         toast.error(`Esta conta está ligada às metas: ${goals.join(', ')}.`)
         setIsDeleteModalOpen(false)
+        setReopenedInvoices([])
+        return
+      }
+
+      if (status === 409 && invoices?.length) {
+        setIsDeleteModalOpen(false)
+        setReopenedInvoices(invoices)
         return
       }
 
@@ -94,5 +113,13 @@ export function useEditAccountModalController() {
     }
   }
 
-  return { isLoadingDelete, handleDeleteAccount, isDeleteModalOpen, handleOpenDeleteModal, handleCloseDeleteModal, accountBeingEdited, isEditAccountModalOpen, toggleOpenEditAccountModal, register, errors, handleSubmit, control, isLoading }
+  function handleDeleteAccount() {
+    return deleteAccount(false)
+  }
+
+  function handleConfirmDeleteAccount() {
+    return deleteAccount(true)
+  }
+
+  return { isLoadingDelete, handleDeleteAccount, handleConfirmDeleteAccount, reopenedInvoices, handleCloseReopenedInvoicesModal, isDeleteModalOpen, handleOpenDeleteModal, handleCloseDeleteModal, accountBeingEdited, isEditAccountModalOpen, toggleOpenEditAccountModal, register, errors, handleSubmit, control, isLoading }
 }
