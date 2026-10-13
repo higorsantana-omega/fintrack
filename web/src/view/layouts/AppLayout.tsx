@@ -33,7 +33,7 @@ export function AppLayout() {
                 to={item.to}
                 end={item.end}
                 className={({ isActive }) => cn(
-                  'h-10 px-3 md:px-4 rounded-xl flex items-center text-sm font-medium tracking-[-0.5px] text-gray-600 hover:text-gray-800 transition-colors',
+                  'relative h-10 px-2 md:px-4 rounded-xl flex items-center text-[13px] md:text-sm font-medium tracking-[-0.5px] text-gray-600 hover:text-gray-800 transition-colors',
                   isActive && 'bg-white text-teal-900 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.06)]'
                 )}
               >
@@ -42,7 +42,7 @@ export function AppLayout() {
                   <span
                     id='cards-nav-dot'
                     aria-label='Faturas em lembrete'
-                    className='ml-1.5 w-2 h-2 rounded-full bg-red-900'
+                    className='absolute top-1.5 right-1 w-2 h-2 rounded-full bg-red-900'
                   />
                 )}
               </NavLink>

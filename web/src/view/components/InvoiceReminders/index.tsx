@@ -32,7 +32,9 @@ export function InvoiceReminders({ onDone }: InvoiceRemindersProps) {
             Fatura: <strong id='invoice-reminder-month'>{formatMonth(currentReminder.month)}</strong>
           </span>
           <span>
-            {INVOICE_STATUS_LABELS[currentReminder.status]} · vence em {formatDate(new Date(currentReminder.dueDate))}
+            {INVOICE_STATUS_LABELS[currentReminder.status]}
+            {currentReminder.status === 'OVERDUE' ? ' · venceu em ' : ' · vence em '}
+            {formatDate(new Date(currentReminder.dueDate))}
           </span>
         </div>
       </div>
