@@ -9,11 +9,13 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { BankAccountsService } from './bank-accounts.service';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 import ActiveUserId from 'src/decorators/activeUserId.decorator';
+import { OptionalParseBoolPipe } from 'src/pipes/OptionalParseBoolPipe';
 
 @Controller('bank-accounts')
 export class BankAccountsController {
@@ -50,7 +52,8 @@ export class BankAccountsController {
   remove(
     @ActiveUserId() userId: string,
     @Param('bankAccountId', ParseUUIDPipe) bankAccountId: string,
+    @Query('confirm', OptionalParseBoolPipe) confirm: boolean,
   ) {
-    return this.bankAccountsService.remove(userId, bankAccountId);
+    return this.bankAccountsService.remove(userId, bankAccountId, confirm);
   }
 }

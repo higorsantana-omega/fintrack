@@ -1,9 +1,16 @@
-import { ConflictException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  HttpStatus,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import {
   CardWithRelations,
   CreditCardsRepository,
 } from 'src/database/repositories/credit-cards.repositories';
 import { CardPurchasesRepository } from 'src/database/repositories/card-purchases.repositories';
+import { TransactionsRepository } from 'src/database/repositories/transactions.repositories';
+import { CategoriesRepository } from 'src/database/repositories/categories.repositories';
 import { isPrismaError } from 'src/database/prisma-errors';
 import {
   formatMonthKey,
@@ -11,12 +18,21 @@ import {
   getMonthStart,
   getToday,
   parseMonthKey,
+  toCalendarDate,
   toNoonUtc,
 } from 'src/shared/calendar';
+import { ValidateBankAccountOwnershipService } from '../bank-accounts/validate-bank-account-ownership.service';
+import { CARD_PAYMENT_CATEGORY_ICON } from '../categories/categories.constants';
 import { ValidateCardOwnershipService } from './validate-card-ownership.service';
 import { CreateCardDto } from './dto/create-card.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
-import { ARCHIVED_CARD_MESSAGE, HAS_ENTRIES_MESSAGE } from './cards.constants';
+import { CreateInvoicePaymentDto } from './dto/create-invoice-payment.dto';
+import {
+  ARCHIVED_CARD_MESSAGE,
+  HAS_ENTRIES_MESSAGE,
+  MONTH_NAMES,
+  PAYMENT_NAME_PREFIX,
+} from './cards.constants';
 import {
   Forecast,
   Invoice,
@@ -33,6 +49,7 @@ import {
   getInvoiceMonth,
   getInvoices,
   getLimit,
+  getReminderInvoices,
 } from './card-calculations';
 
 @Injectable()
@@ -40,7 +57,10 @@ export class CardsService {
   constructor(
     private readonly creditCardsRepository: CreditCardsRepository,
     private readonly cardPurchasesRepository: CardPurchasesRepository,
+    private readonly transactionsRepository: TransactionsRepository,
+    private readonly categoriesRepository: CategoriesRepository,
     private readonly validateCardOwnershipService: ValidateCardOwnershipService,
+    private readonly validateBankAccountOwnershipService: ValidateBankAccountOwnershipService,
   ) {}
 
   create(userId: string, createCardDto: CreateCardDto) {
@@ -79,6 +99,28 @@ export class CardsService {
     };
   }
 
+  /** Invoices in reminder (R33) of the non-archived cards, by due date. */
+  async findReminders(userId: string) {
+    const today = getToday();
+    const cards = await this.loadCards(userId, today);
+
+    return cards
+      .flatMap((card) =>
+        getReminderInvoices(card, today).map((invoice) => ({ card, invoice })),
+      )
+      .sort((a, b) => a.invoice.dueDate.getTime() - b.invoice.dueDate.getTime())
+      .map(({ card, invoice }) => ({
+        cardId: card.id,
+        cardName: card.name,
+        cardColor: card.color,
+        month: formatMonthKey(invoice.month),
+        balance: invoice.balance,
+        dueDate: toNoonUtc(invoice.dueDate),
+        status: invoice.status,
+        lastPaymentBankAccountId: this.getLastPaymentBankAccountId(card),
+      }));
+  }
+
   async findOne(userId: string, cardId: string) {
     const today = getToday();
     await this.cardPurchasesRepository.materializeRecurringCharges(
@@ -97,9 +139,6 @@ export class CardsService {
       toMonth,
     });
     const forecasts = getForecasts(card, today, toMonth);
-    const lastPayment = card.payments
-      .filter((payment) => payment.type === 'EXPENSE')
-      .pop();
 
     return {
       ...this.toCardView(card, today),
@@ -118,7 +157,7 @@ export class CardsService {
           category: rule.category,
           firstChargeDate: toNoonUtc(rule.firstChargeDate),
         })),
-      lastPaymentBankAccountId: lastPayment?.bankAccountId ?? null,
+      lastPaymentBankAccountId: this.getLastPaymentBankAccountId(card),
     };
   }
 
@@ -200,6 +239,87 @@ export class CardsService {
     if (!archived) throw new ConflictException(ARCHIVED_CARD_MESSAGE);
 
     return null;
+  }
+
+  /**
+   * Records the payment as an expense on the account, linked to the invoice
+   * (KTD7). Open, closed and overdue invoices take payments; on an archived
+   * card only while the invoice has a balance (R5).
+   */
+  async payInvoice(
+    userId: string,
+    cardId: string,
+    month: string,
+    createInvoicePaymentDto: CreateInvoicePaymentDto,
+  ) {
+    const today = getToday();
+    await this.cardPurchasesRepository.materializeRecurringCharges(
+      userId,
+      today,
+    );
+    const card = await this.validateCardOwnershipService.validate(
+      userId,
+      cardId,
+    );
+    await this.validateBankAccountOwnershipService.validate(
+      userId,
+      createInvoicePaymentDto.bankAccountId,
+    );
+
+    const monthKey = parseMonthKey(month);
+    const [invoice] = getInvoices(card, today, {
+      fromMonth: monthKey,
+      toMonth: monthKey,
+    });
+    const takesPayment =
+      invoice.status !== 'FUTURE' &&
+      invoice.status !== 'PAID' &&
+      (!card.archivedAt || invoice.balance > 0);
+    if (!takesPayment) {
+      throw new ConflictException('This invoice does not take payments.');
+    }
+
+    const category = await this.categoriesRepository.findByIcon(
+      userId,
+      CARD_PAYMENT_CATEGORY_ICON,
+      'EXPENSE',
+    );
+    if (!category) {
+      throw new InternalServerErrorException(
+        'Card payment category not found.',
+      );
+    }
+
+    const paymentDay = toCalendarDate(new Date(createInvoicePaymentDto.date));
+
+    return this.transactionsRepository.create({
+      userId,
+      bankAccountId: createInvoicePaymentDto.bankAccountId,
+      categoryId: category.id,
+      creditCardId: card.id,
+      cardInvoiceMonth: getMonthStart(monthKey),
+      name: this.getPaymentName(card.name, monthKey, paymentDay),
+      value: createInvoicePaymentDto.value,
+      date: toNoonUtc(paymentDay),
+      type: 'EXPENSE',
+    });
+  }
+
+  /** "Fatura <card> <month>", with the year when it is not the payment's. */
+  private getPaymentName(cardName: string, monthKey: number, paymentDay: Date) {
+    const year = Math.floor(monthKey / 12);
+    const monthName = MONTH_NAMES[monthKey % 12];
+    const suffix = year === paymentDay.getUTCFullYear() ? '' : `/${year}`;
+
+    return `${PAYMENT_NAME_PREFIX} ${cardName} ${monthName}${suffix}`;
+  }
+
+  private getLastPaymentBankAccountId(card: CardWithRelations) {
+    const lastPayment = card.payments
+      .filter((payment) => payment.type === 'EXPENSE')
+      .pop();
+
+    return lastPayment?.bankAccountId ?? null;
   }
 
   private async loadCards(userId: string, today: Date) {

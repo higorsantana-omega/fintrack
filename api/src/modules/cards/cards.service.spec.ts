@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  InternalServerErrorException,
   NotFoundException,
   ValidationPipe,
 } from '@nestjs/common';
@@ -13,6 +14,10 @@ import {
   CreditCardsRepository,
 } from 'src/database/repositories/credit-cards.repositories';
 import { CardPurchasesRepository } from 'src/database/repositories/card-purchases.repositories';
+import { TransactionsRepository } from 'src/database/repositories/transactions.repositories';
+import { CategoriesRepository } from 'src/database/repositories/categories.repositories';
+import { BankAccountsRepository } from 'src/database/repositories/bank-accounts.repositories';
+import { ValidateBankAccountOwnershipService } from '../bank-accounts/validate-bank-account-ownership.service';
 import { CreateCardDto } from './dto/create-card.dto';
 
 const ANA = '11111111-1111-1111-1111-111111111111';
@@ -108,10 +113,18 @@ const cardBody = {
   dueDay: 10,
 };
 
+const bankAccounts = [
+  { id: 'itau', userId: ANA, name: 'Itaú' },
+  { id: 'inter', userId: ANA, name: 'Inter' },
+  { id: 'bia-account', userId: BIA, name: 'Bia' },
+];
+
 describe('CardsService', () => {
   let service: CardsService;
   let cards: CardWithRelations[];
   let creditCardsRepository: Record<string, jest.Mock>;
+  let transactionsRepository: Record<string, jest.Mock>;
+  let categories: { userId: string; id: string; icon: string; type: string }[];
 
   const ownerOf = (cardId: string) => cards.find((card) => card.id === cardId);
 
@@ -204,6 +217,37 @@ describe('CardsService', () => {
 
   beforeEach(async () => {
     cards = [];
+    categories = [
+      {
+        userId: ANA,
+        id: 'ana-card-payment',
+        icon: 'credit-card',
+        type: 'EXPENSE',
+      },
+      {
+        userId: BIA,
+        id: 'bia-card-payment',
+        icon: 'credit-card',
+        type: 'EXPENSE',
+      },
+    ];
+    // A payment shows up on the card it is linked to, as the database would.
+    transactionsRepository = {
+      create: jest.fn(async (data) => {
+        const card = ownerOf(data.creditCardId);
+        card.payments.push({
+          id: nextId('payment'),
+          name: data.name,
+          bankAccountId: data.bankAccountId,
+          value: data.value,
+          date: data.date,
+          type: data.type,
+          cardInvoiceMonth: data.cardInvoiceMonth,
+          bankAccount: { id: data.bankAccountId, name: '', color: '' },
+        });
+        return data;
+      }),
+    };
     creditCardsRepository = {
       create: jest.fn(async (userId, data, cycle) => {
         const card = makeCard({ userId, ...data, cycles: [cycle] });
@@ -247,7 +291,31 @@ describe('CardsService', () => {
       providers: [
         CardsService,
         ValidateCardOwnershipService,
+        ValidateBankAccountOwnershipService,
         { provide: CreditCardsRepository, useValue: creditCardsRepository },
+        { provide: TransactionsRepository, useValue: transactionsRepository },
+        {
+          provide: CategoriesRepository,
+          useValue: {
+            findByIcon: async (userId: string, icon: string, type: string) =>
+              categories.find(
+                (category) =>
+                  category.userId === userId &&
+                  category.icon === icon &&
+                  category.type === type,
+              ) ?? null,
+          },
+        },
+        {
+          provide: BankAccountsRepository,
+          useValue: {
+            findFirst: async (userId: string, bankAccountId: string) =>
+              bankAccounts.find(
+                (account) =>
+                  account.userId === userId && account.id === bankAccountId,
+              ) ?? null,
+          },
+        },
         {
           provide: CardPurchasesRepository,
           useValue: new CardPurchasesRepository(
@@ -496,6 +564,163 @@ describe('CardsService', () => {
         ConflictException,
       );
       expect(creditCardsRepository.archive).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('payInvoice', () => {
+    const pay = (
+      cardId: string,
+      month: string,
+      value: number,
+      bankAccountId = 'itau',
+      date = '2026-10-08T15:00:00.000Z',
+    ) => service.payInvoice(ANA, cardId, month, { bankAccountId, value, date });
+
+    it('AE4: a R$ 1.000 payment by Itaú is a "Fatura de cartão" expense linked to the invoice, and a second one by Inter pays it off', async () => {
+      const card = makeCard({ purchases: [purchase('2026-10', 1230)] });
+      cards.push(card);
+
+      await pay(card.id, '2026-10', 1000, 'itau');
+
+      expect(transactionsRepository.create).toHaveBeenCalledWith({
+        userId: ANA,
+        bankAccountId: 'itau',
+        categoryId: 'ana-card-payment',
+        creditCardId: card.id,
+        cardInvoiceMonth: monthDate('2026-10'),
+        name: 'Fatura Nubank outubro',
+        value: 1000,
+        date: noon('2026-10-08'),
+        type: 'EXPENSE',
+      });
+
+      await pay(card.id, '2026-10', 230, 'inter');
+
+      const { invoices } = await service.findOne(ANA, card.id);
+      expect(
+        invoices.find((invoice) => invoice.month === '2026-10'),
+      ).toMatchObject({ balance: 0, status: 'PAID', canPay: false });
+      expect(transactionsRepository.create.mock.calls[1][0]).toMatchObject({
+        bankAccountId: 'inter',
+        name: 'Fatura Nubank outubro',
+      });
+    });
+
+    it.each([
+      ['a future invoice', '2026-12'],
+      ['a paid invoice', '2026-09'],
+    ])('returns 409 for %s', async (_, month) => {
+      const card = makeCard({
+        purchases: [purchase('2026-09', 100), purchase('2026-12', 100)],
+        payments: [payment('2026-09', 100)],
+      });
+      cards.push(card);
+
+      await expect(pay(card.id, month, 50)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(transactionsRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('AE18: accepts paying an archived card invoice that has a balance, and refuses one without', async () => {
+      const card = makeCard({
+        archivedAt: new Date('2026-09-15T12:00:00Z'),
+        purchases: [purchase('2026-09', 300), purchase('2026-10', 100)],
+        payments: [payment('2026-10', 100)],
+      });
+      cards.push(card);
+
+      await pay(card.id, '2026-09', 300);
+      expect(transactionsRepository.create).toHaveBeenCalledTimes(1);
+
+      await expect(pay(card.id, '2026-10', 10)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(transactionsRepository.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns 404 for another user's bank account", async () => {
+      const card = makeCard({ purchases: [purchase('2026-10', 100)] });
+      cards.push(card);
+
+      await expect(
+        pay(card.id, '2026-10', 100, 'bia-account'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(transactionsRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('fails and records nothing when only another user has the "Fatura de cartão" category', async () => {
+      categories = categories.filter((category) => category.userId === BIA);
+      const card = makeCard({ purchases: [purchase('2026-10', 100)] });
+      cards.push(card);
+
+      await expect(pay(card.id, '2026-10', 100)).rejects.toBeInstanceOf(
+        InternalServerErrorException,
+      );
+      expect(transactionsRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('names a December/2026 invoice paid in 2027 "Fatura Nubank dezembro/2026"', async () => {
+      setToday('2027-01-05T15:00:00.000Z');
+      const card = makeCard({ purchases: [purchase('2026-12', 100)] });
+      cards.push(card);
+
+      await pay(card.id, '2026-12', 100, 'itau', '2027-01-05T15:00:00.000Z');
+
+      expect(transactionsRepository.create.mock.calls[0][0].name).toBe(
+        'Fatura Nubank dezembro/2026',
+      );
+    });
+  });
+
+  describe('findReminders', () => {
+    it('lists the invoices in reminder by due date, leaving out archived cards and paid invoices', async () => {
+      setToday('2026-10-06T15:00:00.000Z');
+      const inter = makeCard({
+        name: 'Inter',
+        cycles: [
+          { closingDay: 1, dueDay: 8, effectiveFrom: monthDate('2026-01') },
+        ],
+        purchases: [purchase('2026-10', 70)],
+        payments: [payment('2026-10', 20, 'inter')],
+      });
+      const nubank = makeCard({
+        purchases: [purchase('2026-09', 50), purchase('2026-10', 1230)],
+      });
+      cards.push(
+        nubank,
+        inter,
+        makeCard({
+          name: 'Pago',
+          purchases: [purchase('2026-10', 10)],
+          payments: [payment('2026-10', 10)],
+        }),
+        makeCard({
+          name: 'Arquivado',
+          archivedAt: new Date('2026-09-01T12:00:00Z'),
+          purchases: [purchase('2026-10', 10)],
+        }),
+      );
+
+      const reminders = await service.findReminders(ANA);
+
+      expect(
+        reminders.map((reminder) => [
+          reminder.cardName,
+          reminder.month,
+          reminder.balance,
+          reminder.status,
+        ]),
+      ).toEqual([
+        ['Nubank', '2026-09', 50, 'OVERDUE'],
+        ['Inter', '2026-10', 50, 'CLOSED'],
+        ['Nubank', '2026-10', 1230, 'CLOSED'],
+      ]);
+      expect(reminders[1]).toMatchObject({
+        cardId: inter.id,
+        dueDate: noon('2026-10-08'),
+        lastPaymentBankAccountId: 'inter',
+      });
     });
   });
 

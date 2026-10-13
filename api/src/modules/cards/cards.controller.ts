@@ -11,6 +11,7 @@ import {
   Put,
 } from '@nestjs/common';
 import ActiveUserId from 'src/decorators/activeUserId.decorator';
+import { ParseMonthPipe } from 'src/pipes/ParseMonthPipe';
 import { CardsService } from './cards.service';
 import { CardEntriesService } from './card-entries.service';
 import { CreateCardDto } from './dto/create-card.dto';
@@ -19,6 +20,7 @@ import { CreateCardPurchaseDto } from './dto/create-card-purchase.dto';
 import { UpdateCardPurchaseDto } from './dto/update-card-purchase.dto';
 import { CreateRecurringChargeDto } from './dto/create-recurring-charge.dto';
 import { UpdateRecurringChargeDto } from './dto/update-recurring-charge.dto';
+import { CreateInvoicePaymentDto } from './dto/create-invoice-payment.dto';
 
 @Controller('cards')
 export class CardsController {
@@ -40,6 +42,11 @@ export class CardsController {
   @Get('summary')
   getSummary(@ActiveUserId() userId: string) {
     return this.cardsService.getSummary(userId);
+  }
+
+  @Get('reminders')
+  findReminders(@ActiveUserId() userId: string) {
+    return this.cardsService.findReminders(userId);
   }
 
   @Get(':cardId')
@@ -75,6 +82,21 @@ export class CardsController {
     @Param('cardId', ParseUUIDPipe) cardId: string,
   ) {
     return this.cardsService.archive(userId, cardId);
+  }
+
+  @Post(':cardId/invoices/:month/payments')
+  payInvoice(
+    @ActiveUserId() userId: string,
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+    @Param('month', ParseMonthPipe) month: string,
+    @Body() createInvoicePaymentDto: CreateInvoicePaymentDto,
+  ) {
+    return this.cardsService.payInvoice(
+      userId,
+      cardId,
+      month,
+      createInvoicePaymentDto,
+    );
   }
 
   @Post(':cardId/purchases')
