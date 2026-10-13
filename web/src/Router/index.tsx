@@ -8,6 +8,7 @@ import { AppLayout } from '../view/layouts/AppLayout'
 import { Goals } from '../view/pages/Goals'
 import { GoalDetail } from '../view/pages/GoalDetail'
 import { Cards } from '../view/pages/Cards'
+import { CardDetail } from '../view/pages/CardDetail'
 
 export function Router () {
   return (
@@ -26,6 +27,7 @@ export function Router () {
             <Route path='/metas' element={<Goals />}/>
             <Route path='/metas/:goalId' element={<GoalDetail />}/>
             <Route path='/cartoes' element={<Cards />}/>
+            <Route path='/cartoes/:cardId' element={<CardDetail />}/>
           </Route>
         </Route>
       </Routes>
