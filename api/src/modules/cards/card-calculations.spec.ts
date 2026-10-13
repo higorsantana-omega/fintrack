@@ -9,6 +9,7 @@ import {
   getCardsSeries,
   getCardsSummary,
   getChargeDates,
+  getCategoryTotals,
   getChargesToMaterialize,
   getCycleChangeMonth,
   getDefaultInvoiceMonth,
@@ -787,5 +788,22 @@ describe('getReopenedInvoices', () => {
     });
 
     expect(getReopenedInvoices(card, today, withoutItau)).toEqual([]);
+  });
+});
+
+describe('getCategoryTotals', () => {
+  it('sums each category, takes refunds from their own category or from "no category", and shares out the positive totals', () => {
+    expect(
+      getCategoryTotals([
+        { categoryId: 'food', kind: 'PURCHASE', value: 300.1 },
+        { categoryId: 'fun', kind: 'PURCHASE', value: 200 },
+        { categoryId: 'food', kind: 'REFUND', value: 100.1 },
+        { categoryId: null, kind: 'REFUND', value: 50 },
+      ]),
+    ).toEqual([
+      { categoryId: 'food', total: 200, share: 0.5 },
+      { categoryId: 'fun', total: 200, share: 0.5 },
+      { categoryId: null, total: -50, share: 0 },
+    ]);
   });
 });

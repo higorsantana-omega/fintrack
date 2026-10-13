@@ -558,6 +558,42 @@ export function getCardsSeries(cards: CardSnapshot[], today: Date) {
   return series;
 }
 
+export type CategoryEntry = {
+  categoryId: string | null;
+  kind: 'PURCHASE' | 'REFUND';
+  value: number;
+};
+
+/**
+ * Totals by category for the Categorias tab (R45): refunds subtract from
+ * their own category, or from "no category", and the share is taken out of
+ * the categories with a positive total.
+ */
+export function getCategoryTotals(entries: CategoryEntry[]) {
+  const centsByCategory = new Map<string | null, number>();
+
+  entries.forEach(({ categoryId, kind, value }) => {
+    const cents = kind === 'REFUND' ? -toCents(value) : toCents(value);
+    centsByCategory.set(
+      categoryId,
+      (centsByCategory.get(categoryId) ?? 0) + cents,
+    );
+  });
+
+  const positiveCents = [...centsByCategory.values()].reduce(
+    (sum, cents) => sum + Math.max(0, cents),
+    0,
+  );
+
+  return [...centsByCategory]
+    .sort(([, a], [, b]) => b - a)
+    .map(([categoryId, cents]) => ({
+      categoryId,
+      total: fromCents(cents),
+      share: positiveCents > 0 ? Math.max(0, cents) / positiveCents : 0,
+    }));
+}
+
 /** Invoices due in the current month and the summed limit (R40). */
 export function getCardsSummary(cards: CardSnapshot[], today: Date) {
   const currentMonth = getMonthKey(today);
