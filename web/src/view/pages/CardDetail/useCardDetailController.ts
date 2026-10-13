@@ -34,6 +34,12 @@ export function useCardDetailController() {
   const { isLoading: isLoadingDelete, mutateAsync: removeCard } = useMutation(cardsService.remove)
   const { isLoading: isCancelling, mutateAsync: cancelRecurringCharge } = useMutation(cardsService.cancelRecurringCharge)
 
+  // The invoice the API selects on opening (R44) stays selected while the
+  // page is open, so paying it does not jump to another invoice.
+  useEffect(() => {
+    if (card && selectedMonth === null) setSelectedMonth(card.selectedMonth)
+  }, [card, selectedMonth])
+
   useEffect(() => {
     if (!isError) return
 
@@ -42,8 +48,7 @@ export function useCardDetailController() {
     navigate('/cartoes', { replace: true })
   }, [isError, error, navigate])
 
-  // The API picks the invoice selected on opening (R44); a month that left
-  // the strip after a change falls back to it.
+  // A month that left the strip after a change falls back to the API's pick.
   const selectedInvoice = card?.invoices.find(invoice => invoice.month === selectedMonth)
     ?? card?.invoices.find(invoice => invoice.month === card.selectedMonth)
 

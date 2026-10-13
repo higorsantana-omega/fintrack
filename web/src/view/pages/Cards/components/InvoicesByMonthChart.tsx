@@ -51,7 +51,7 @@ export function InvoicesByMonthChart({ data }: InvoicesByMonthChartProps) {
             <XAxis dataKey='label' {...GOAL_CHART_AXIS} />
             <YAxis width={72} tickFormatter={formatCompactCurrency} {...GOAL_CHART_AXIS} />
             <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} {...GOAL_CHART_TOOLTIP} />
-            <Bar dataKey='value' radius={[6, 6, 0, 0]}>
+            <Bar dataKey='value' radius={[6, 6, 0, 0]} minPointSize={2}>
               {points.map(point => (
                 <Cell
                   key={point.month}
