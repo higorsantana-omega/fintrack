@@ -29,6 +29,8 @@ import {
   getDefaultInvoiceMonth,
   getFirstCycleMonth,
   getForecasts,
+  getInvoiceDates,
+  getInvoiceMonth,
   getInvoices,
   getLimit,
 } from './card-calculations';
@@ -225,6 +227,7 @@ export class CardsService {
     });
     const latest = card.cycles[card.cycles.length - 1];
     const limit = getLimit(card);
+    const openMonth = getInvoiceMonth(card.cycles, today);
 
     return {
       id: card.id,
@@ -243,6 +246,13 @@ export class CardsService {
         dueDate: toNoonUtc(invoice.dueDate),
         status: invoice.status,
       },
+      // What the entry forms offer: the invoice of the current installment
+      // (R18) and the earliest first charge of a recurring one (R19).
+      openInvoiceMonth: formatMonthKey(openMonth),
+      lastClosedInvoiceMonth: formatMonthKey(openMonth - 1),
+      earliestChargeDate: toNoonUtc(
+        getInvoiceDates(card.cycles, openMonth - 1).periodStart,
+      ),
     };
   }
 
