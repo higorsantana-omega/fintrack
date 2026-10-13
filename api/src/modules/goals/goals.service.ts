@@ -4,7 +4,7 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { Prisma, TransactionType } from '@prisma/client';
+import { TransactionType } from '@prisma/client';
 import {
   GoalData,
   GoalWithRelations,
@@ -12,6 +12,7 @@ import {
 } from 'src/database/repositories/goals.repositories';
 import { TransactionsRepository } from 'src/database/repositories/transactions.repositories';
 import { CategoriesRepository } from 'src/database/repositories/categories.repositories';
+import { isPrismaError } from 'src/database/prisma-errors';
 import { ValidateBankAccountOwnershipService } from '../bank-accounts/validate-bank-account-ownership.service';
 import { ValidateGoalOwnershipService } from './validate-goal-ownership.service';
 import { CreateGoalDto } from './dto/create-goal.dto';
@@ -26,32 +27,28 @@ import {
   WITHDRAWAL_NAME_PREFIX,
 } from './goals.constants';
 import {
-  formatMonthKey,
-  getDueDate,
   getEvolutionSeries,
   getGoalStatus,
   getGoalsSummary,
-  getMonthKey,
-  getMonthStart,
   getPendingMonths,
   getResolvedMonths,
   getSavedByMonthSeries,
-  getTodayInGoalsTimeZone,
   getTotalSaved,
-  parseMonthKey,
-  toGoalsCalendarDate,
-  toNoonUtc,
 } from './goal-calculations';
+import {
+  formatMonthKey,
+  getDayInMonth,
+  getMonthKey,
+  getMonthStart,
+  getToday,
+  parseMonthKey,
+  toCalendarDate,
+  toNoonUtc,
+} from 'src/shared/calendar';
 
 const NOT_PENDING_MESSAGE = 'This month is not pending for this goal.';
 const HAS_CONTRIBUTIONS_MESSAGE =
   'A goal with contributions can only be archived.';
-
-function isPrismaError(error: unknown, code: string) {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError && error.code === code
-  );
-}
 
 @Injectable()
 export class GoalsService {
@@ -70,14 +67,14 @@ export class GoalsService {
   }
 
   async findAllByUserId(userId: string) {
-    const today = getTodayInGoalsTimeZone();
+    const today = getToday();
     const goals = await this.goalsRepository.findManyByUserId(userId);
 
     return goals.map((goal) => this.toGoalView(goal, today));
   }
 
   async getSummary(userId: string) {
-    const today = getTodayInGoalsTimeZone();
+    const today = getToday();
     const goals = await this.goalsRepository.findManyByUserId(userId);
 
     return {
@@ -87,7 +84,7 @@ export class GoalsService {
   }
 
   async findReminders(userId: string) {
-    const today = getTodayInGoalsTimeZone();
+    const today = getToday();
     const goals = await this.goalsRepository.findManyByUserId(userId);
 
     return goals
@@ -103,14 +100,14 @@ export class GoalsService {
         goalId: goal.id,
         goalName: goal.name,
         month: formatMonthKey(monthKey),
-        dueDate: getDueDate(monthKey, goal.contributionDay),
+        dueDate: getDayInMonth(monthKey, goal.contributionDay),
         monthlyContribution: goal.monthlyContribution,
         bankAccount: goal.bankAccount,
       }));
   }
 
   async findOne(userId: string, goalId: string) {
-    const today = getTodayInGoalsTimeZone();
+    const today = getToday();
     const goal = await this.validateGoalOwnershipService.validate(
       userId,
       goalId,
@@ -192,7 +189,7 @@ export class GoalsService {
       goalId,
     );
 
-    const { status } = getGoalStatus(goal, getTodayInGoalsTimeZone());
+    const { status } = getGoalStatus(goal, getToday());
     if (status !== 'IN_PROGRESS') {
       throw new ConflictException(
         'Contributions are only accepted while the goal is in progress.',
@@ -200,7 +197,7 @@ export class GoalsService {
     }
 
     const date = toNoonUtc(
-      toGoalsCalendarDate(new Date(createContributionDto.date)),
+      toCalendarDate(new Date(createContributionDto.date)),
     );
 
     return this.createContribution(
@@ -223,13 +220,13 @@ export class GoalsService {
     );
     const monthKey = parseMonthKey(month);
 
-    const pendingMonths = getPendingMonths(goal, getTodayInGoalsTimeZone());
+    const pendingMonths = getPendingMonths(goal, getToday());
     if (!pendingMonths.includes(monthKey)) {
       throw new ConflictException(NOT_PENDING_MESSAGE);
     }
 
     if (resolveReminderDto.action === ReminderAction.CONFIRM) {
-      const dueDate = toNoonUtc(getDueDate(monthKey, goal.contributionDay));
+      const dueDate = toNoonUtc(getDayInMonth(monthKey, goal.contributionDay));
 
       return this.createContribution(
         userId,
@@ -268,7 +265,7 @@ export class GoalsService {
           userId,
           categoryId: (await this.getGoalCategory(userId, 'INCOME')).id,
           namePrefix: WITHDRAWAL_NAME_PREFIX,
-          date: toNoonUtc(getTodayInGoalsTimeZone()),
+          date: toNoonUtc(getToday()),
         }
       : null;
 
@@ -325,8 +322,8 @@ export class GoalsService {
       goalDto.bankAccountId,
     );
 
-    const startDate = toGoalsCalendarDate(new Date(goalDto.startDate));
-    const endDate = toGoalsCalendarDate(new Date(goalDto.endDate));
+    const startDate = toCalendarDate(new Date(goalDto.startDate));
+    const endDate = toCalendarDate(new Date(goalDto.endDate));
 
     if (endDate < startDate) {
       throw new BadRequestException(

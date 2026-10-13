@@ -27,8 +27,11 @@ export async function update(params: BankAccountParams & { id: string }) {
   return data
 }
 
-export async function remove(bankAccountId: string) {
-  const { data } = await httpClient.delete(`/bank-accounts/${bankAccountId}`)
+/** `confirm` deletes even when card invoices reopen (the API answers 409 without it). */
+export async function remove(bankAccountId: string, confirm = false) {
+  const { data } = await httpClient.delete(`/bank-accounts/${bankAccountId}`, {
+    params: confirm ? { confirm: true } : undefined
+  })
   return data
 }
 

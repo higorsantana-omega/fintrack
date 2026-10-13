@@ -1,6 +1,6 @@
 import { httpClient } from './httpClient'
 
-interface Category {
+export interface Category {
   id: string
   name: string
   icon: string

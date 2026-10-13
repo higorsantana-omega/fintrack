@@ -8,6 +8,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { GoalsModule } from './modules/goals/goals.module';
+import { CardsModule } from './modules/cards/cards.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { GoalsModule } from './modules/goals/goals.module';
     BankAccountsModule,
     TransactionsModule,
     GoalsModule,
+    CardsModule,
   ],
   controllers: [],
   providers: [

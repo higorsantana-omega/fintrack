@@ -19,7 +19,7 @@ import { CategoriesRepository } from 'src/database/repositories/categories.repos
 import { BankAccountsRepository } from 'src/database/repositories/bank-accounts.repositories';
 import { CreateContributionDto } from './dto/create-contribution.dto';
 import { ReminderAction, ResolveReminderDto } from './dto/resolve-reminder.dto';
-import { formatMonthKey, getMonthKey } from './goal-calculations';
+import { formatMonthKey, getMonthKey } from 'src/shared/calendar';
 
 const ANA = '11111111-1111-1111-1111-111111111111';
 const BIA = '22222222-2222-2222-2222-222222222222';

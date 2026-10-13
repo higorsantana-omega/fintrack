@@ -8,6 +8,7 @@ import { Select } from '../../../../components/Select'
 import { useEditAccountModalController } from './useEditAccountModalController'
 import { TrashIcon } from '@radix-ui/react-icons'
 import { ConfirmDeleteModal } from '../../../../components/ConfirmDeleteModal'
+import { formatMonth } from '../../../../../app/utils/formatMonth'
 
 export function EditAccountModal() {
   const {
@@ -22,8 +23,33 @@ export function EditAccountModal() {
     handleCloseDeleteModal,
     isDeleteModalOpen,
     handleDeleteAccount,
+    handleConfirmDeleteAccount,
+    reopenedInvoices,
+    handleCloseReopenedInvoicesModal,
     isLoadingDelete
   } = useEditAccountModalController()
+
+  if (reopenedInvoices.length > 0) {
+    return <ConfirmDeleteModal
+      isLoading={isLoadingDelete}
+      onConfirm={handleConfirmDeleteAccount}
+      onClose={handleCloseReopenedInvoicesModal}
+      title='Esta conta pagou faturas de cartão'
+      description={(
+        <>
+          <p>Ao excluir a conta, esses pagamentos também serão excluídos e estas faturas voltarão a ter saldo a pagar:</p>
+
+          <ul id='reopened-invoices' className='mt-4 space-y-1 font-medium'>
+            {reopenedInvoices.map(invoice => (
+              <li key={`${invoice.cardId}-${invoice.month}`}>
+                {`Fatura ${invoice.cardName} ${formatMonth(invoice.month)}`}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    />
+  }
 
   if (isDeleteModalOpen) {
     return <ConfirmDeleteModal

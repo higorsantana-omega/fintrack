@@ -1,5 +1,3 @@
-export const GOALS_TIME_ZONE = 'America/Sao_Paulo';
-
 // Every read walks the goal's months, so the period is capped (50 years).
 export const MAX_GOAL_PERIOD_MONTHS = 600;
 

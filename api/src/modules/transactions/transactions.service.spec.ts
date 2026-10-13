@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TransactionsService } from './transactions.service';
 import { TransactionType } from './entities/transaction.entity';
@@ -7,12 +7,21 @@ import { ValidateCategoryOwnershipService } from '../categories/validate-categor
 import { TransactionsRepository } from 'src/database/repositories/transactions.repositories';
 import { BankAccountsRepository } from 'src/database/repositories/bank-accounts.repositories';
 import { CategoriesRepository } from 'src/database/repositories/categories.repositories';
+import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { UpdateTransactionDto } from './dto/update-transaction.dto';
 
 const ANA = 'ana';
 const BIA = 'bia';
 
 const transactions = [
   { id: 'ana-contribution', userId: ANA, goalId: 'goal' },
+  {
+    id: 'ana-invoice-payment',
+    userId: ANA,
+    goalId: null,
+    creditCardId: 'nubank-card',
+    cardInvoiceMonth: new Date('2026-10-01T00:00:00.000Z'),
+  },
   { id: 'bia-transaction', userId: BIA, goalId: null },
 ];
 
@@ -123,5 +132,51 @@ describe('TransactionsService', () => {
     expect(transactionsRepository.delete).toHaveBeenCalledWith(
       'ana-contribution',
     );
+  });
+
+  it('AE16: editing the date and category of an invoice payment keeps its link to the invoice', async () => {
+    await service.update(ANA, 'ana-invoice-payment', {
+      ...body,
+      name: 'Fatura Nubank outubro',
+      date: '2026-11-02T12:00:00.000Z',
+      creditCardId: null,
+      cardInvoiceMonth: null,
+    } as typeof body);
+
+    const [, data] = transactionsRepository.update.mock.calls[0];
+    expect(data).not.toHaveProperty('creditCardId');
+    expect(data).not.toHaveProperty('cardInvoiceMonth');
+    expect(data).toMatchObject({
+      categoryId: 'ana-category',
+      date: '2026-11-02T12:00:00.000Z',
+    });
+  });
+
+  it('never writes the invoice link from a transaction body', async () => {
+    await service.create(ANA, {
+      ...body,
+      creditCardId: 'nubank-card',
+      cardInvoiceMonth: '2026-10-01',
+    } as typeof body);
+
+    const [data] = transactionsRepository.create.mock.calls[0];
+    expect(data).not.toHaveProperty('creditCardId');
+    expect(data).not.toHaveProperty('cardInvoiceMonth');
+
+    const pipe = new ValidationPipe({ whitelist: true });
+    for (const metatype of [CreateTransactionDto, UpdateTransactionDto]) {
+      const validated = await pipe.transform(
+        {
+          ...body,
+          categoryId: '33333333-3333-3333-3333-333333333333',
+          bankAccountId: '44444444-4444-4444-4444-444444444444',
+          creditCardId: 'nubank-card',
+          cardInvoiceMonth: '2026-10-01',
+        },
+        { type: 'body', metatype },
+      );
+      expect(validated).not.toHaveProperty('creditCardId');
+      expect(validated).not.toHaveProperty('cardInvoiceMonth');
+    }
   });
 });

@@ -4,6 +4,10 @@ import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 import { BankAccountsRepository } from 'src/database/repositories/bank-accounts.repositories';
 import { ValidateBankAccountOwnershipService } from './validate-bank-account-ownership.service';
 import { GoalsRepository } from 'src/database/repositories/goals.repositories';
+import { CreditCardsRepository } from 'src/database/repositories/credit-cards.repositories';
+import { CardPurchasesRepository } from 'src/database/repositories/card-purchases.repositories';
+import { formatMonthKey, getToday } from 'src/shared/calendar';
+import { getReopenedInvoices } from '../cards/card-calculations';
 
 @Injectable()
 export class BankAccountsService {
@@ -11,6 +15,8 @@ export class BankAccountsService {
     private readonly bankAccountsRepository: BankAccountsRepository,
     private readonly validateBankAccountOwnershipService: ValidateBankAccountOwnershipService,
     private readonly goalsRepository: GoalsRepository,
+    private readonly creditCardsRepository: CreditCardsRepository,
+    private readonly cardPurchasesRepository: CardPurchasesRepository,
   ) {}
 
   create(userId: string, createBankAccountDto: CreateBankAccountDto) {
@@ -60,7 +66,11 @@ export class BankAccountsService {
     });
   }
 
-  async remove(userId: string, bankAccountId: string) {
+  /**
+   * Two steps (KTD9): the goals lock first; then, unless confirmed, the
+   * invoices its card payments would leave with a balance once deleted.
+   */
+  async remove(userId: string, bankAccountId: string, confirm = false) {
     await this.validateBankAccountOwnershipService.validate(
       userId,
       bankAccountId,
@@ -81,8 +91,45 @@ export class BankAccountsService {
       });
     }
 
+    if (!confirm) {
+      const reopenedInvoices = await this.getReopenedInvoices(
+        userId,
+        bankAccountId,
+      );
+
+      if (reopenedInvoices.length > 0) {
+        throw new ConflictException({
+          statusCode: HttpStatus.CONFLICT,
+          error: 'Conflict',
+          message:
+            'Deleting this bank account leaves card invoices with a balance.',
+          invoices: reopenedInvoices,
+        });
+      }
+    }
+
     await this.bankAccountsRepository.delete(bankAccountId);
 
     return null;
+  }
+
+  private async getReopenedInvoices(userId: string, bankAccountId: string) {
+    const today = getToday();
+    await this.cardPurchasesRepository.materializeRecurringCharges(
+      userId,
+      today,
+    );
+    const cards = await this.creditCardsRepository.findManyByUserId(userId);
+    const isFromAccount = (payment: { bankAccountId: string }) =>
+      payment.bankAccountId === bankAccountId;
+
+    return cards.flatMap((card) =>
+      getReopenedInvoices(card, today, isFromAccount).map((invoice) => ({
+        cardId: card.id,
+        cardName: card.name,
+        month: formatMonthKey(invoice.month),
+        balance: invoice.balance,
+      })),
+    );
   }
 }
