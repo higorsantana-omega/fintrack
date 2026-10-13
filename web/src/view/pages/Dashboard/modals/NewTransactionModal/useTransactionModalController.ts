@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { transactionsService } from '../../../../../app/services/transactionsService'
 import toast from 'react-hot-toast'
 import { currencyStringToNumber } from '../../../../../app/utils/currencyStringToNumber'
+import { CARD_PAYMENT_CATEGORY_ICON } from '../../../../../app/utils/cardEntryCategories'
 
 const schema = z.object({
   value: z.string().nonempty('Informe o valor'),
@@ -78,7 +79,7 @@ export function useNewTransactionModalController() {
   // invoice, so "Fatura de cartão" is left out of a new transaction.
   const categories = useMemo(() => {
     return categoriesList.filter(category => (
-      category.type === newTransactionType && category.icon !== 'credit-card'
+      category.type === newTransactionType && category.icon !== CARD_PAYMENT_CATEGORY_ICON
     ))
   }, [categoriesList, newTransactionType])
 

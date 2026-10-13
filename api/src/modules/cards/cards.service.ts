@@ -36,7 +36,7 @@ import {
 import {
   Forecast,
   Invoice,
-  canPayInvoice,
+  hasBalanceToPay,
   getCardSeries,
   getCardsSeries,
   getCardsSummary,
@@ -123,14 +123,7 @@ export class CardsService {
 
   async findOne(userId: string, cardId: string) {
     const today = getToday();
-    await this.cardPurchasesRepository.materializeRecurringCharges(
-      userId,
-      today,
-    );
-    const card = await this.validateCardOwnershipService.validate(
-      userId,
-      cardId,
-    );
+    const card = await this.loadCard(userId, cardId, today);
 
     const series = getCardSeries(card, today);
     const toMonth = parseMonthKey(series[series.length - 1].month);
@@ -215,14 +208,7 @@ export class CardsService {
 
   async archive(userId: string, cardId: string) {
     const today = getToday();
-    await this.cardPurchasesRepository.materializeRecurringCharges(
-      userId,
-      today,
-    );
-    const card = await this.validateCardOwnershipService.validate(
-      userId,
-      cardId,
-    );
+    const card = await this.loadCard(userId, cardId, today);
     this.assertNotArchived(card);
 
     const { used } = getLimit(card);
@@ -253,14 +239,7 @@ export class CardsService {
     createInvoicePaymentDto: CreateInvoicePaymentDto,
   ) {
     const today = getToday();
-    await this.cardPurchasesRepository.materializeRecurringCharges(
-      userId,
-      today,
-    );
-    const card = await this.validateCardOwnershipService.validate(
-      userId,
-      cardId,
-    );
+    const card = await this.loadCard(userId, cardId, today);
     await this.validateBankAccountOwnershipService.validate(
       userId,
       createInvoicePaymentDto.bankAccountId,
@@ -320,6 +299,16 @@ export class CardsService {
       .pop();
 
     return lastPayment?.bankAccountId ?? null;
+  }
+
+  /** Loads the card once its recurring charges due up to today exist (KTD6). */
+  private async loadCard(userId: string, cardId: string, today: Date) {
+    await this.cardPurchasesRepository.materializeRecurringCharges(
+      userId,
+      today,
+    );
+
+    return this.validateCardOwnershipService.validate(userId, cardId);
   }
 
   private async loadCards(userId: string, today: Date) {
@@ -457,7 +446,7 @@ export class CardsService {
       creditOut: invoice.creditOut,
       forecast: invoice.forecast,
       status: invoice.status,
-      canPay: canPayInvoice(invoice),
+      canPay: hasBalanceToPay(invoice),
       entries: [...entries, ...forecastEntries].sort(
         (a, b) => a.date.getTime() - b.date.getTime(),
       ),

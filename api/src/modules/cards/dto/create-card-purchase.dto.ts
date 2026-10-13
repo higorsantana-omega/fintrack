@@ -13,6 +13,7 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
+import { MONTH_PATTERN } from 'src/pipes/ParseMonthPipe';
 
 export enum CardPurchaseKind {
   PURCHASE = 'PURCHASE',
@@ -62,6 +63,6 @@ export class CreateCardPurchaseDto {
 
   /** Due month (YYYY-MM) of the invoice holding the current installment. */
   @IsOptional()
-  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/)
+  @Matches(MONTH_PATTERN)
   anchorInvoiceMonth?: string;
 }

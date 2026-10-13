@@ -7,6 +7,7 @@ import {
 import { CardWithRelations } from 'src/database/repositories/credit-cards.repositories';
 import {
   CardPurchasesRepository,
+  InstallmentData,
   PurchaseData,
 } from 'src/database/repositories/card-purchases.repositories';
 import { RecurringChargesRepository } from 'src/database/repositories/recurring-charges.repositories';
@@ -334,7 +335,7 @@ export class CardEntriesService {
     anchorMonth: number | null,
   ): {
     data: PurchaseData;
-    installments: { number: number; value: number; invoiceMonth: Date }[];
+    installments: InstallmentData[];
   } {
     const installmentsCount = entry.installmentsCount ?? 1;
     const purchaseDay = toCalendarDate(new Date(entry.date));

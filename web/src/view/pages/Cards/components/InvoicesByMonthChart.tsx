@@ -3,7 +3,7 @@ import { CardsSummary } from '../../../../app/entities/CreditCard'
 import { formatCurrency } from '../../../../app/utils/formatCurrency'
 import { formatCompactCurrency } from '../../../../app/utils/formatCompactCurrency'
 import { formatMonth } from '../../../../app/utils/formatMonth'
-import { GOAL_CHART_AXIS, GOAL_CHART_TOOLTIP } from '../../../constants/GoalConstants'
+import { GOAL_CHART_AXIS, GOAL_CHART_COLORS, GOAL_CHART_TOOLTIP } from '../../../constants/GoalConstants'
 import { CARD_CHART_COLORS } from '../../../constants/CardConstants'
 
 type Point = CardsSummary['invoicesByMonth'][number]
@@ -47,7 +47,7 @@ export function InvoicesByMonthChart({ data }: InvoicesByMonthChartProps) {
       <div className='h-56 w-full' aria-label='Gráfico das faturas de todos os cartões por mês de vencimento'>
         <ResponsiveContainer width='100%' height='100%'>
           <BarChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid vertical={false} stroke={CARD_CHART_COLORS.grid} />
+            <CartesianGrid vertical={false} stroke={GOAL_CHART_COLORS.grid} />
             <XAxis dataKey='label' {...GOAL_CHART_AXIS} />
             <YAxis width={72} tickFormatter={formatCompactCurrency} {...GOAL_CHART_AXIS} />
             <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} {...GOAL_CHART_TOOLTIP} />

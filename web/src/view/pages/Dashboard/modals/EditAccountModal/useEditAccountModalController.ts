@@ -8,7 +8,7 @@ import { currencyStringToNumber } from '../../../../../app/utils/currencyStringT
 import toast from 'react-hot-toast'
 import { useState } from 'react'
 import { invalidateMoneyQueries } from '../../../../../app/utils/invalidateMoneyQueries'
-import { getApiErrorPayload } from '../../../../../app/utils/getApiErrorPayload'
+import { ReopenedInvoice, getApiErrorPayload } from '../../../../../app/utils/getApiErrorPayload'
 
 const schema = z.object({
   initialBalance: z.union([
@@ -21,8 +21,6 @@ const schema = z.object({
 })
 
 type FormData = z.infer<typeof schema>
-
-type ReopenedInvoice = NonNullable<ReturnType<typeof getApiErrorPayload>['invoices']>[number]
 
 export function useEditAccountModalController() {
   const {

@@ -256,11 +256,16 @@ export function getChargeDates(
   through: Date,
 ) {
   const chargeDay = rule.firstChargeDate.getUTCDate();
+  const lastMonth = getMonthKey(through);
   const dates: Date[] = [];
 
+  // Months before the one of `after` only hold dates before it.
   for (
-    let monthKey = getMonthKey(rule.firstChargeDate);
-    monthKey <= getMonthKey(through);
+    let monthKey = Math.max(
+      getMonthKey(rule.firstChargeDate),
+      getMonthKey(after),
+    );
+    monthKey <= lastMonth;
     monthKey++
   ) {
     const date = getDayInMonth(monthKey, chargeDay);
@@ -431,8 +436,11 @@ export function getInvoices(
   return invoices;
 }
 
-/** Whether the invoice takes the Pagar action (R14, R5). */
-export function canPayInvoice(invoice: Invoice) {
+/**
+ * A balance to pay on an invoice that is not future: what takes the Pagar
+ * action (R14, R5) and what the card page opens on (R44).
+ */
+export function hasBalanceToPay(invoice: Invoice) {
   return invoice.status !== 'FUTURE' && invoice.balance > 0;
 }
 
@@ -462,10 +470,6 @@ function getSeriesWindow(today: Date) {
   };
 }
 
-function isUnpaid(invoice: Invoice) {
-  return invoice.status !== 'FUTURE' && invoice.balance > 0;
-}
-
 /** Closed invoices due in 5 days or less, and overdue ones (R33). */
 export function getReminderInvoices(card: CardSnapshot, today: Date) {
   if (card.archivedAt) return [];
@@ -490,7 +494,7 @@ export function getDefaultInvoiceMonth(card: CardSnapshot, today: Date) {
   const oldestUnpaid = getInvoices(card, today, {
     fromMonth: Number.NEGATIVE_INFINITY,
     toMonth: openMonth,
-  }).find(isUnpaid);
+  }).find(hasBalanceToPay);
 
   return oldestUnpaid?.month ?? openMonth;
 }
@@ -520,7 +524,7 @@ export function getCardSeries(card: CardSnapshot, today: Date) {
   const oldestUnpaid = getInvoices(card, today, {
     fromMonth: Number.NEGATIVE_INFINITY,
     toMonth,
-  }).find(isUnpaid);
+  }).find(hasBalanceToPay);
 
   return getInvoices(card, today, {
     fromMonth: Math.min(fromMonth, oldestUnpaid?.month ?? fromMonth),
@@ -651,9 +655,7 @@ export function getReopenedInvoices(
   return after
     .filter(
       (invoice, index) =>
-        invoice.status !== 'FUTURE' &&
-        invoice.balance > 0 &&
-        before[index].balance <= 0,
+        hasBalanceToPay(invoice) && before[index].balance <= 0,
     )
     .map(({ month, balance, dueDate }) => ({ month, balance, dueDate }));
 }

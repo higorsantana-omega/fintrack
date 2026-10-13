@@ -4,7 +4,7 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { Prisma, TransactionType } from '@prisma/client';
+import { TransactionType } from '@prisma/client';
 import {
   GoalData,
   GoalWithRelations,
@@ -12,6 +12,7 @@ import {
 } from 'src/database/repositories/goals.repositories';
 import { TransactionsRepository } from 'src/database/repositories/transactions.repositories';
 import { CategoriesRepository } from 'src/database/repositories/categories.repositories';
+import { isPrismaError } from 'src/database/prisma-errors';
 import { ValidateBankAccountOwnershipService } from '../bank-accounts/validate-bank-account-ownership.service';
 import { ValidateGoalOwnershipService } from './validate-goal-ownership.service';
 import { CreateGoalDto } from './dto/create-goal.dto';
@@ -48,12 +49,6 @@ import {
 const NOT_PENDING_MESSAGE = 'This month is not pending for this goal.';
 const HAS_CONTRIBUTIONS_MESSAGE =
   'A goal with contributions can only be archived.';
-
-function isPrismaError(error: unknown, code: string) {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError && error.code === code
-  );
-}
 
 @Injectable()
 export class GoalsService {

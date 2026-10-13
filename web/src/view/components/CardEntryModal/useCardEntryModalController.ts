@@ -12,14 +12,16 @@ import { currencyStringToNumber } from '../../../app/utils/currencyStringToNumbe
 import { formatDate } from '../../../app/utils/formatDate'
 import { calendarDateToLocal, positiveCurrency, toCalendarNoonIso } from '../../../app/utils/goalForm'
 
-export type EntryTab = 'PURCHASE' | 'INSTALLMENTS' | 'RECURRING' | 'REFUND'
+export const ENTRY_TABS = ['PURCHASE', 'INSTALLMENTS', 'RECURRING', 'REFUND'] as const
+
+export type EntryTab = typeof ENTRY_TABS[number]
 
 // Mirrors the API: an installment purchase has 2 to 48 installments.
 const MIN_INSTALLMENTS = 2
 const MAX_INSTALLMENTS = 48
 
 const schema = z.object({
-  tab: z.enum(['PURCHASE', 'INSTALLMENTS', 'RECURRING', 'REFUND']),
+  tab: z.enum(ENTRY_TABS),
   cardId: z.string().nonempty('Informe o cartão'),
   description: z.string().nonempty('Informe a descrição'),
   value: positiveCurrency('Informe o valor', 'Informe um valor maior que zero'),
