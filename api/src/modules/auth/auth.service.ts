@@ -12,6 +12,11 @@ import {
   GOAL_CATEGORY_ICON,
   GOAL_CATEGORY_NAME,
 } from '../goals/goals.constants';
+import {
+  CARD_PAYMENT_CATEGORY_ICON,
+  CARD_PAYMENT_CATEGORY_NAME,
+  DEFAULT_EXPENSE_CATEGORIES,
+} from '../categories/categories.constants';
 
 @Injectable()
 export class AuthService {
@@ -62,6 +67,16 @@ export class AuthService {
                 name: GOAL_CATEGORY_NAME,
                 icon: GOAL_CATEGORY_ICON,
                 type: 'INCOME',
+              },
+              ...DEFAULT_EXPENSE_CATEGORIES.map(({ name, icon }) => ({
+                name,
+                icon,
+                type: 'EXPENSE' as const,
+              })),
+              {
+                name: CARD_PAYMENT_CATEGORY_NAME,
+                icon: CARD_PAYMENT_CATEGORY_ICON,
+                type: 'EXPENSE',
               },
             ],
           },

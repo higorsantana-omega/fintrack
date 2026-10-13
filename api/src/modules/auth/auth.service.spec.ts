@@ -26,7 +26,7 @@ describe('AuthService', () => {
     service = module.get<AuthService>(AuthService);
   });
 
-  it('creates the default categories, including both "Metas" categories, on signup', async () => {
+  it('creates the default categories, including both "Metas" categories, the default expense categories and "Fatura de cartão", on signup', async () => {
     await service.signup({
       name: 'Ana',
       email: 'ana@example.com',
@@ -39,6 +39,15 @@ describe('AuthService', () => {
       { name: 'House', icon: 'home', type: 'EXPENSE' },
       { name: 'Metas', icon: 'goal', type: 'EXPENSE' },
       { name: 'Metas', icon: 'goal', type: 'INCOME' },
+      { name: 'Alimentação', icon: 'food', type: 'EXPENSE' },
+      { name: 'Mercado', icon: 'grocery', type: 'EXPENSE' },
+      { name: 'Lazer', icon: 'fun', type: 'EXPENSE' },
+      { name: 'Transporte', icon: 'transport', type: 'EXPENSE' },
+      { name: 'Viagem', icon: 'travel', type: 'EXPENSE' },
+      { name: 'Educação', icon: 'education', type: 'EXPENSE' },
+      { name: 'Roupas', icon: 'clothes', type: 'EXPENSE' },
+      { name: 'Outros', icon: 'other', type: 'EXPENSE' },
+      { name: 'Fatura de cartão', icon: 'credit-card', type: 'EXPENSE' },
     ]);
   });
 });

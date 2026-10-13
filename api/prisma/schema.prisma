@@ -19,6 +19,7 @@ model User {
   categories   Category[]
   transactions Transaction[]
   goals        Goal[]
+  creditCards  CreditCard[]
 
   @@map("user")
 }
@@ -52,12 +53,14 @@ enum TransactionType {
 }
 
 model Category {
-  id           String          @id @default(uuid()) @db.Uuid
-  userId       String          @db.Uuid
-  name         String
-  icon         String
-  type         TransactionType
-  transactions Transaction[]
+  id               String            @id @default(uuid()) @db.Uuid
+  userId           String            @db.Uuid
+  name             String
+  icon             String
+  type             TransactionType
+  transactions     Transaction[]
+  cardPurchases    CardPurchase[]
+  recurringCharges RecurringCharge[]
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -65,20 +68,23 @@ model Category {
 }
 
 model Transaction {
-  id            String          @id @default(uuid()) @db.Uuid
-  userId        String          @db.Uuid
-  bankAccountId String          @db.Uuid
-  categoryId    String?         @db.Uuid
-  goalId        String?         @db.Uuid
-  name          String
-  value         Float
-  date          DateTime
-  type          TransactionType
+  id               String          @id @default(uuid()) @db.Uuid
+  userId           String          @db.Uuid
+  bankAccountId    String          @db.Uuid
+  categoryId       String?         @db.Uuid
+  goalId           String?         @db.Uuid
+  creditCardId     String?         @db.Uuid
+  cardInvoiceMonth DateTime?       @db.Date
+  name             String
+  value            Float
+  date             DateTime
+  type             TransactionType
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
   category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   goal        Goal?       @relation(fields: [goalId], references: [id], onDelete: NoAction)
+  creditCard  CreditCard? @relation(fields: [creditCardId], references: [id], onDelete: NoAction)
 
   @@map("transactions")
 }
@@ -114,4 +120,102 @@ model GoalSkippedMonth {
 
   @@unique([goalId, month])
   @@map("goalSkippedMonth")
+}
+
+model CreditCard {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  name       String
+  color      String
+  limit      Float
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cycles           CreditCardCycle[]
+  purchases        CardPurchase[]
+  recurringCharges RecurringCharge[]
+  payments         Transaction[]
+
+  @@map("creditCard")
+}
+
+model CreditCardCycle {
+  id            String   @id @default(uuid()) @db.Uuid
+  creditCardId  String   @db.Uuid
+  closingDay    Int
+  dueDay        Int
+  // First due month (first day of the month) this version applies to.
+  effectiveFrom DateTime @db.Date
+
+  creditCard CreditCard @relation(fields: [creditCardId], references: [id], onDelete: Cascade)
+
+  @@unique([creditCardId, effectiveFrom])
+  @@map("creditCardCycle")
+}
+
+enum CardPurchaseKind {
+  PURCHASE
+  REFUND
+
+  @@map("cardPurchaseKind")
+}
+
+model CardPurchase {
+  id                 String           @id @default(uuid()) @db.Uuid
+  creditCardId       String           @db.Uuid
+  categoryId         String?          @db.Uuid
+  recurringChargeId  String?          @db.Uuid
+  kind               CardPurchaseKind
+  description        String
+  totalValue         Float
+  purchaseDate       DateTime
+  installmentsCount  Int              @default(1)
+  currentInstallment Int              @default(1)
+  // Due month of the invoice holding the current installment (R18 only).
+  anchorInvoiceMonth DateTime?        @db.Date
+  // Charge date, for purchases materialized from a recurring charge.
+  occurrenceDate     DateTime?        @db.Date
+  createdAt          DateTime         @default(now())
+
+  creditCard      CreditCard        @relation(fields: [creditCardId], references: [id], onDelete: Cascade)
+  category        Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  recurringCharge RecurringCharge?  @relation(fields: [recurringChargeId], references: [id], onDelete: SetNull)
+  installments    CardInstallment[]
+
+  @@unique([recurringChargeId, occurrenceDate])
+  @@map("cardPurchase")
+}
+
+model CardInstallment {
+  id           String   @id @default(uuid()) @db.Uuid
+  purchaseId   String   @db.Uuid
+  number       Int
+  value        Float
+  // Due month (first day of the month) of the invoice the installment falls in.
+  invoiceMonth DateTime @db.Date
+
+  purchase CardPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@unique([purchaseId, number])
+  @@map("cardInstallment")
+}
+
+model RecurringCharge {
+  id                  String    @id @default(uuid()) @db.Uuid
+  creditCardId        String    @db.Uuid
+  categoryId          String?   @db.Uuid
+  description         String
+  value               Float
+  firstChargeDate     DateTime  @db.Date
+  // Last calendar day whose charge was already turned into a purchase.
+  materializedThrough DateTime  @db.Date
+  cancelledAt         DateTime? @db.Date
+  createdAt           DateTime  @default(now())
+
+  creditCard CreditCard     @relation(fields: [creditCardId], references: [id], onDelete: Cascade)
+  category   Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  charges    CardPurchase[]
+
+  @@map("recurringCharge")
 }
