@@ -116,7 +116,7 @@ export function useCardEntryModalController({ cards, cardId, entry, onClose }: C
     control,
     setValue,
     setError,
-    formState: { errors },
+    formState: { errors, isSubmitting },
     handleSubmit: hookFormSubmit
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -129,7 +129,7 @@ export function useCardEntryModalController({ cards, cardId, entry, onClose }: C
   })
   const selectedCard = cards.find(card => card.id === selectedCardId)
 
-  const { isLoading, mutateAsync: save } = useMutation(async (data: FormData) => {
+  const { mutateAsync: save } = useMutation(async (data: FormData) => {
     const value = currencyStringToNumber(data.value)
     const date = toCalendarNoonIso(data.date)
     const categoryId = data.categoryId || undefined
@@ -233,7 +233,9 @@ export function useCardEntryModalController({ cards, cardId, entry, onClose }: C
     control,
     errors,
     handleSubmit,
-    isLoading,
+    // The submit stays busy through the limit check after saving, so a
+    // second click cannot record the entry twice.
+    isLoading: isSubmitting,
     tab,
     selectTab: (nextTab: EntryTab) => setValue('tab', nextTab),
     inProgress,

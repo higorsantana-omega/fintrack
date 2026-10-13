@@ -32,12 +32,16 @@ import {
 import { UpdateCardPurchaseDto } from './dto/update-card-purchase.dto';
 import { CreateRecurringChargeDto } from './dto/create-recurring-charge.dto';
 import { UpdateRecurringChargeDto } from './dto/update-recurring-charge.dto';
-import { ARCHIVED_CARD_MESSAGE } from './cards.constants';
+import {
+  ARCHIVED_CARD_MESSAGE,
+  DATE_OUT_OF_RANGE_MESSAGE,
+} from './cards.constants';
 import {
   addDays,
   getInstallments,
   getInvoiceDates,
   getInvoiceMonth,
+  isWithinDateWindow,
 } from './card-calculations';
 
 const EXCLUDED_CATEGORY_ICONS = [
@@ -339,6 +343,9 @@ export class CardEntriesService {
   } {
     const installmentsCount = entry.installmentsCount ?? 1;
     const purchaseDay = toCalendarDate(new Date(entry.date));
+    if (!isWithinDateWindow(purchaseDay, getToday())) {
+      throw new BadRequestException(DATE_OUT_OF_RANGE_MESSAGE);
+    }
 
     if (anchorMonth === null) {
       if (entry.currentInstallment !== undefined) {

@@ -604,6 +604,19 @@ describe('CardEntriesService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
+    it.each([
+      ['in the year 100', '0100-01-15T15:00:00.000Z'],
+      ['twenty years ahead', '2046-10-05T15:00:00.000Z'],
+    ])('returns 400 for a purchase dated %s', async (_, date) => {
+      const card = makeCard();
+      cards.push(card);
+
+      await expect(
+        service.createPurchase(ANA, card.id, single({ date })),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(card.purchases).toEqual([]);
+    });
+
     it('AE9: records a purchase above the available limit', async () => {
       const card = makeCard({ limit: 300 });
       cards.push(card);

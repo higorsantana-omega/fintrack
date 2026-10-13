@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   HttpStatus,
   Injectable,
@@ -29,7 +30,9 @@ import { UpdateCardDto } from './dto/update-card.dto';
 import { CreateInvoicePaymentDto } from './dto/create-invoice-payment.dto';
 import {
   ARCHIVED_CARD_MESSAGE,
+  DATE_OUT_OF_RANGE_MESSAGE,
   HAS_ENTRIES_MESSAGE,
+  NO_PAYMENT_MESSAGE,
   MONTH_NAMES,
   PAYMENT_NAME_PREFIX,
 } from './cards.constants';
@@ -48,6 +51,7 @@ import {
   getInvoiceDates,
   getInvoiceMonth,
   getInvoices,
+  isWithinDateWindow,
   getLimit,
   getReminderInvoices,
 } from './card-calculations';
@@ -245,7 +249,18 @@ export class CardsService {
       createInvoicePaymentDto.bankAccountId,
     );
 
+    const paymentDay = toCalendarDate(new Date(createInvoicePaymentDto.date));
+    if (!isWithinDateWindow(paymentDay, today)) {
+      throw new BadRequestException(DATE_OUT_OF_RANGE_MESSAGE);
+    }
+
+    // Months after the open invoice are future and take no payment; refusing
+    // them first keeps a far-off month from walking every month up to it.
     const monthKey = parseMonthKey(month);
+    if (monthKey > getInvoiceMonth(card.cycles, today)) {
+      throw new ConflictException(NO_PAYMENT_MESSAGE);
+    }
+
     const [invoice] = getInvoices(card, today, {
       fromMonth: monthKey,
       toMonth: monthKey,
@@ -255,7 +270,7 @@ export class CardsService {
       invoice.status !== 'PAID' &&
       (!card.archivedAt || invoice.balance > 0);
     if (!takesPayment) {
-      throw new ConflictException('This invoice does not take payments.');
+      throw new ConflictException(NO_PAYMENT_MESSAGE);
     }
 
     const category = await this.categoriesRepository.findByIcon(
@@ -268,8 +283,6 @@ export class CardsService {
         'Card payment category not found.',
       );
     }
-
-    const paymentDay = toCalendarDate(new Date(createInvoicePaymentDto.date));
 
     return this.transactionsRepository.create({
       userId,

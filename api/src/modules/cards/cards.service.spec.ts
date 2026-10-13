@@ -622,6 +622,33 @@ describe('CardsService', () => {
       expect(transactionsRepository.create).not.toHaveBeenCalled();
     });
 
+    it('refuses a month after the open invoice without computing the invoices up to it', async () => {
+      const card = makeCard({
+        purchases: [purchase('2026-10', 100)],
+        recurringCharges: Array.from({ length: 20 }, () =>
+          netflix({ materializedThrough: day('2026-10-05') }),
+        ),
+      });
+      cards.push(card);
+      const startedAt = performance.now();
+
+      await expect(pay(card.id, '9999-12', 50)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(performance.now() - startedAt).toBeLessThan(1000);
+      expect(transactionsRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 for a payment dated more than ten years away from today', async () => {
+      const card = makeCard({ purchases: [purchase('2026-10', 100)] });
+      cards.push(card);
+
+      await expect(
+        pay(card.id, '2026-10', 50, 'itau', '0100-01-15T15:00:00.000Z'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(transactionsRepository.create).not.toHaveBeenCalled();
+    });
+
     it('AE18: accepts paying an archived card invoice that has a balance, and refuses one without', async () => {
       const card = makeCard({
         archivedAt: new Date('2026-09-15T12:00:00Z'),

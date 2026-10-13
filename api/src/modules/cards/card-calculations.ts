@@ -88,6 +88,10 @@ export type CardsSeriesPoint = Omit<CardSeriesPoint, 'balance' | 'status'>;
 export const SERIES_MONTHS_AROUND = 6;
 export const REMINDER_DAYS_BEFORE_DUE = 5;
 
+// Invoices are walked month by month from the oldest entry, so purchase and
+// payment dates stay within this many months of today.
+export const MAX_DATE_DISTANCE_MONTHS = 120;
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const addDays = (date: Date, days: number) =>
@@ -162,6 +166,13 @@ export function getInvoiceDates(
       .dueDate,
     periodStart: getClosingDate(cycles, monthKey - 1),
   };
+}
+
+export function isWithinDateWindow(calendarDay: Date, today: Date) {
+  return (
+    Math.abs(getMonthKey(calendarDay) - getMonthKey(today)) <=
+    MAX_DATE_DISTANCE_MONTHS
+  );
 }
 
 /** Due month of the first invoice closing strictly after the day (R6). */
