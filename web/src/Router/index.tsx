@@ -9,6 +9,7 @@ import { Goals } from '../view/pages/Goals'
 import { GoalDetail } from '../view/pages/GoalDetail'
 import { Cards } from '../view/pages/Cards'
 import { CardDetail } from '../view/pages/CardDetail'
+import { Debts } from '../view/pages/Debts'
 
 export function Router () {
   return (
@@ -28,6 +29,7 @@ export function Router () {
             <Route path='/metas/:goalId' element={<GoalDetail />}/>
             <Route path='/cartoes' element={<Cards />}/>
             <Route path='/cartoes/:cardId' element={<CardDetail />}/>
+            <Route path='/dividas' element={<Debts />}/>
           </Route>
         </Route>
       </Routes>
