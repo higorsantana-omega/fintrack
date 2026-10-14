@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import { currencyStringToNumber } from '../../../../../app/utils/currencyStringToNumber'
 import { Transaction } from '../../../../../app/entities/Transaction'
 import { invalidateMoneyQueries } from '../../../../../app/utils/invalidateMoneyQueries'
+import { getManualEntryCategories } from '../../../../../app/utils/debtCategories'
 
 const schema = z.object({
   value: z.union([
@@ -89,7 +90,8 @@ export function useEditTransactionModalController(
   })
 
   const categories = useMemo(() => {
-    return categoriesList.filter(category => category.type === transaction?.type)
+    return getManualEntryCategories(categoriesList, transaction ?? undefined)
+      .filter(category => category.type === transaction?.type)
   }, [categoriesList, transaction])
 
   async function handleDeleteTransaction () {

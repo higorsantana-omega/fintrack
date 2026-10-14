@@ -9,6 +9,16 @@ import { useEditAccountModalController } from './useEditAccountModalController'
 import { TrashIcon } from '@radix-ui/react-icons'
 import { ConfirmDeleteModal } from '../../../../components/ConfirmDeleteModal'
 import { formatMonth } from '../../../../../app/utils/formatMonth'
+import { formatCurrency } from '../../../../../app/utils/formatCurrency'
+
+function formatInstallments(installments: number[]) {
+  const label = installments.length > 1 ? 'parcelas' : 'parcela'
+  const numbers = installments.length > 1
+    ? `${installments.slice(0, -1).join(', ')} e ${installments[installments.length - 1]}`
+    : String(installments[0])
+
+  return `${label} ${numbers}`
+}
 
 export function EditAccountModal() {
   const {
@@ -24,28 +34,64 @@ export function EditAccountModal() {
     isDeleteModalOpen,
     handleDeleteAccount,
     handleConfirmDeleteAccount,
-    reopenedInvoices,
-    handleCloseReopenedInvoicesModal,
+    deletionImpact,
+    handleCloseDeletionImpactModal,
     isLoadingDelete
   } = useEditAccountModalController()
 
-  if (reopenedInvoices.length > 0) {
+  if (deletionImpact) {
+    const { invoices, debts, borrowers } = deletionImpact
+
     return <ConfirmDeleteModal
       isLoading={isLoadingDelete}
       onConfirm={handleConfirmDeleteAccount}
-      onClose={handleCloseReopenedInvoicesModal}
-      title='Esta conta pagou faturas de cartão'
+      onClose={handleCloseDeletionImpactModal}
+      title='Esta conta tem pagamentos e movimentações ligados'
       description={(
         <>
-          <p>Ao excluir a conta, esses pagamentos também serão excluídos e estas faturas voltarão a ter saldo a pagar:</p>
+          <p>Ao excluir a conta, esses pagamentos e movimentações também serão excluídos:</p>
 
-          <ul id='reopened-invoices' className='mt-4 space-y-1 font-medium'>
-            {reopenedInvoices.map(invoice => (
-              <li key={`${invoice.cardId}-${invoice.month}`}>
-                {`Fatura ${invoice.cardName} ${formatMonth(invoice.month)}`}
-              </li>
-            ))}
-          </ul>
+          {invoices.length > 0 && (
+            <>
+              <p className='mt-4'>Estas faturas voltarão a ter saldo a pagar:</p>
+
+              <ul id='reopened-invoices' className='mt-2 space-y-1 font-medium'>
+                {invoices.map(invoice => (
+                  <li key={`${invoice.cardId}-${invoice.month}`}>
+                    {`Fatura ${invoice.cardName} ${formatMonth(invoice.month)}`}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {debts.length > 0 && (
+            <>
+              <p className='mt-4'>Estas parcelas de dívidas voltarão a ficar em aberto:</p>
+
+              <ul id='reopened-debts' className='mt-2 space-y-1 font-medium'>
+                {debts.map(debt => (
+                  <li key={debt.debtId}>
+                    {`${debt.name}: ${formatInstallments(debt.installments)} ${debt.installments.length > 1 ? 'voltam' : 'volta'} a ficar em aberto`}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {borrowers.length > 0 && (
+            <>
+              <p className='mt-4'>Estes saldos de pessoas vão mudar:</p>
+
+              <ul id='changed-borrowers' className='mt-2 space-y-1 font-medium'>
+                {borrowers.map(borrower => (
+                  <li key={borrower.borrowerId}>
+                    {`${borrower.name}: saldo ${borrower.change >= 0 ? 'sobe' : 'desce'} ${formatCurrency(Math.abs(borrower.change))}`}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </>
       )}
     />
