@@ -8,6 +8,9 @@ import { CreditCardsRepository } from 'src/database/repositories/credit-cards.re
 import { CardPurchasesRepository } from 'src/database/repositories/card-purchases.repositories';
 import { formatMonthKey, getToday } from 'src/shared/calendar';
 import { getReopenedInvoices } from '../cards/card-calculations';
+import { DebtsRepository } from 'src/database/repositories/debts.repositories';
+import { BorrowersRepository } from 'src/database/repositories/borrowers.repositories';
+import { getAccountDeletionImpact } from '../debts/debt-calculations';
 
 @Injectable()
 export class BankAccountsService {
@@ -17,6 +20,8 @@ export class BankAccountsService {
     private readonly goalsRepository: GoalsRepository,
     private readonly creditCardsRepository: CreditCardsRepository,
     private readonly cardPurchasesRepository: CardPurchasesRepository,
+    private readonly debtsRepository: DebtsRepository,
+    private readonly borrowersRepository: BorrowersRepository,
   ) {}
 
   create(userId: string, createBankAccountDto: CreateBankAccountDto) {
@@ -68,7 +73,8 @@ export class BankAccountsService {
 
   /**
    * Two steps (KTD9): the goals lock first; then, unless confirmed, the
-   * invoices its card payments would leave with a balance once deleted.
+   * invoices, debt installments and people balances the deletion changes, in a
+   * single warning (KTD7).
    */
   async remove(userId: string, bankAccountId: string, confirm = false) {
     await this.validateBankAccountOwnershipService.validate(
@@ -92,18 +98,21 @@ export class BankAccountsService {
     }
 
     if (!confirm) {
-      const reopenedInvoices = await this.getReopenedInvoices(
+      const invoices = await this.getReopenedInvoices(userId, bankAccountId);
+      const { debts, borrowers } = await this.getDebtsImpact(
         userId,
         bankAccountId,
       );
 
-      if (reopenedInvoices.length > 0) {
+      if (invoices.length + debts.length + borrowers.length > 0) {
         throw new ConflictException({
           statusCode: HttpStatus.CONFLICT,
           error: 'Conflict',
           message:
-            'Deleting this bank account leaves card invoices with a balance.',
-          invoices: reopenedInvoices,
+            'Deleting this bank account changes card invoices, debts or people balances.',
+          invoices,
+          debts,
+          borrowers,
         });
       }
     }
@@ -129,6 +138,22 @@ export class BankAccountsService {
         cardName: card.name,
         month: formatMonthKey(invoice.month),
         balance: invoice.balance,
+      })),
+    );
+  }
+
+  private async getDebtsImpact(userId: string, bankAccountId: string) {
+    const [debts, borrowers] = await Promise.all([
+      this.debtsRepository.findManyByUserId(userId),
+      this.borrowersRepository.findManyByUserId(userId),
+    ]);
+
+    return getAccountDeletionImpact(
+      bankAccountId,
+      debts,
+      borrowers.map((borrower) => ({
+        ...borrower,
+        previousBalance: borrower.openingBalance,
       })),
     );
   }

@@ -10,6 +10,14 @@ import {
   CreditCardsRepository,
 } from 'src/database/repositories/credit-cards.repositories';
 import { CardPurchasesRepository } from 'src/database/repositories/card-purchases.repositories';
+import {
+  DebtWithRelations,
+  DebtsRepository,
+} from 'src/database/repositories/debts.repositories';
+import {
+  BorrowerWithRelations,
+  BorrowersRepository,
+} from 'src/database/repositories/borrowers.repositories';
 
 const ANA = 'ana';
 
@@ -66,6 +74,65 @@ function nubank(overrides: Partial<CardWithRelations> = {}): CardWithRelations {
   };
 }
 
+// The Carro of the plan with installments 19 and 20 paid from Itaú.
+function carro(): DebtWithRelations {
+  const installment = (
+    number: number,
+    paymentTransactionId: string | null,
+  ) => ({
+    number,
+    dueMonth: monthDate(`2026-${String(number - 9).padStart(2, '0')}`),
+    expectedValue: 1200,
+    paidBeforeApp: false,
+    paymentTransactionId,
+  });
+  const payment = {
+    id: 'carro-payment',
+    name: 'Parcelas 19 e 20/48: Carro',
+    value: 2400,
+    date: new Date('2026-10-13T12:00:00.000Z'),
+    type: 'EXPENSE' as const,
+    bankAccountId: 'itau',
+    bankAccount: { id: 'itau', name: 'Itaú', color: '#EC7000' },
+  };
+
+  return {
+    id: 'carro',
+    userId: ANA,
+    name: 'Carro',
+    dueDay: 10,
+    createdAt: new Date('2026-01-10T15:00:00.000Z'),
+    installments: [
+      installment(19, 'carro-payment'),
+      installment(20, 'carro-payment'),
+      installment(21, null),
+    ],
+    transactions: [payment],
+  };
+}
+
+// João owes 1.500 and returned 300 into Itaú.
+function joao(): BorrowerWithRelations {
+  return {
+    id: 'joao',
+    userId: ANA,
+    name: 'João',
+    openingBalance: 1500,
+    createdAt: new Date('2026-01-10T15:00:00.000Z'),
+    transactions: [
+      {
+        id: 'joao-return',
+        name: 'Devolução: João',
+        value: 300,
+        date: new Date('2026-10-13T12:00:00.000Z'),
+        type: 'INCOME',
+        bankAccountId: 'itau',
+        bankAccount: { id: 'itau', name: 'Itaú', color: '#EC7000' },
+      },
+    ],
+  };
+}
+
 describe('BankAccountsService', () => {
   let service: BankAccountsService;
   let bankAccountsRepository: Record<string, jest.Mock>;
@@ -73,6 +140,8 @@ describe('BankAccountsService', () => {
   let findActiveGoalsLinkedToBankAccount: jest.Mock;
   let cards: CardWithRelations[];
   let findCards: jest.Mock;
+  let debts: DebtWithRelations[];
+  let borrowers: BorrowerWithRelations[];
 
   beforeEach(async () => {
     linkedGoals = [];
@@ -87,6 +156,8 @@ describe('BankAccountsService', () => {
     findActiveGoalsLinkedToBankAccount = jest.fn(async () => linkedGoals);
     cards = [];
     findCards = jest.fn(async () => cards);
+    debts = [];
+    borrowers = [];
     jest.useFakeTimers({
       now: new Date('2026-10-20T15:00:00.000Z'),
       doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'],
@@ -108,6 +179,14 @@ describe('BankAccountsService', () => {
         {
           provide: CardPurchasesRepository,
           useValue: { materializeRecurringCharges: async () => undefined },
+        },
+        {
+          provide: DebtsRepository,
+          useValue: { findManyByUserId: jest.fn(async () => debts) },
+        },
+        {
+          provide: BorrowersRepository,
+          useValue: { findManyByUserId: jest.fn(async () => borrowers) },
         },
       ],
     }).compile();
@@ -192,6 +271,8 @@ describe('BankAccountsService', () => {
           { cardName: 'Nubank', month: '2026-08', balance: 500 },
           { cardName: 'Nubank', month: '2026-09', balance: 300 },
         ],
+        debts: [],
+        borrowers: [],
       });
       expect(bankAccountsRepository.delete).not.toHaveBeenCalled();
 
@@ -232,6 +313,75 @@ describe('BankAccountsService', () => {
       expect(error.getResponse().invoices).toBeUndefined();
       expect(findCards).not.toHaveBeenCalled();
       expect(bankAccountsRepository.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('with debt payments and people movements', () => {
+    const removeError = (bankAccountId: string, confirm?: boolean) =>
+      service.remove(ANA, bankAccountId, confirm).catch((caught) => caught);
+
+    it('AE11: lists the installments that reopen and the balance change of the person, with no invoices', async () => {
+      debts = [carro()];
+      borrowers = [joao()];
+
+      const error = await removeError('itau');
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect(error.getResponse()).toMatchObject({
+        invoices: [],
+        debts: [{ debtId: 'carro', name: 'Carro', installments: [19, 20] }],
+        borrowers: [{ borrowerId: 'joao', name: 'João', change: 300 }],
+      });
+      expect(bankAccountsRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('keeps the goals 409 first, even with debt payments', async () => {
+      debts = [carro()];
+      borrowers = [joao()];
+      linkedGoals = [{ id: 'goal', name: 'Viagem' }];
+
+      const error = await removeError('itau');
+
+      expect(error.getResponse()).toMatchObject({ goals: ['Viagem'] });
+      expect(error.getResponse().debts).toBeUndefined();
+      expect(bankAccountsRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('answers with empty debts and borrowers when only invoices reopen', async () => {
+      cards = [nubank()];
+      debts = [carro()];
+      borrowers = [joao()];
+
+      const error = await removeError('nubank');
+
+      expect(error.getResponse().invoices).toHaveLength(2);
+      expect(error.getResponse()).toMatchObject({ debts: [], borrowers: [] });
+    });
+
+    it('deletes without a 409 when the account only holds the loan entry', async () => {
+      const debt = carro();
+      debt.transactions = [
+        {
+          ...debt.transactions[0],
+          id: 'carro-entry',
+          type: 'INCOME',
+          bankAccountId: 'inter',
+        },
+      ];
+      debts = [debt];
+
+      await service.remove(ANA, 'inter');
+
+      expect(bankAccountsRepository.delete).toHaveBeenCalledWith('inter');
+    });
+
+    it('deletes with confirm=true', async () => {
+      debts = [carro()];
+      borrowers = [joao()];
+
+      await service.remove(ANA, 'itau', true);
+
+      expect(bankAccountsRepository.delete).toHaveBeenCalledWith('itau');
     });
   });
 });
