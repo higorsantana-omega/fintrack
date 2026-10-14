@@ -31,6 +31,11 @@ export class DebtsController {
     return this.debtsService.findAllByUserId(userId);
   }
 
+  @Get('summary')
+  getSummary(@ActiveUserId() userId: string) {
+    return this.debtsService.getSummary(userId);
+  }
+
   @Get('reminders')
   findReminders(@ActiveUserId() userId: string) {
     return this.debtsService.findReminders(userId);

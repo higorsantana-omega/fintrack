@@ -13,6 +13,7 @@ import {
   DebtWithRelations,
   DebtsRepository,
 } from 'src/database/repositories/debts.repositories';
+import { BorrowersRepository } from 'src/database/repositories/borrowers.repositories';
 import { CategoriesRepository } from 'src/database/repositories/categories.repositories';
 import { BankAccountsRepository } from 'src/database/repositories/bank-accounts.repositories';
 import { ValidateBankAccountOwnershipService } from '../bank-accounts/validate-bank-account-ownership.service';
@@ -104,6 +105,11 @@ describe('DebtsService', () => {
   let debtsRepository: Record<string, jest.Mock>;
   let categories: { userId: string; id: string; icon: string; type: string }[];
   let deleteError: Error | null;
+  let borrowers: {
+    userId: string;
+    openingBalance: number;
+    transactions: { type: string; value: number; bankAccountId: string }[];
+  }[];
 
   const ownerOf = (debtId: string) => debts.find((debt) => debt.id === debtId);
   const rowOf = (debt: DebtWithRelations, number: number) =>
@@ -129,6 +135,7 @@ describe('DebtsService', () => {
 
   beforeEach(async () => {
     debts = [];
+    borrowers = [];
     deleteError = null;
     categories = [
       { userId: ANA, id: 'ana-debt-income', icon: 'debt', type: 'INCOME' },
@@ -235,6 +242,13 @@ describe('DebtsService', () => {
         ValidateDebtOwnershipService,
         ValidateBankAccountOwnershipService,
         { provide: DebtsRepository, useValue: debtsRepository },
+        {
+          provide: BorrowersRepository,
+          useValue: {
+            findManyByUserId: async (userId: string) =>
+              borrowers.filter((borrower) => borrower.userId === userId),
+          },
+        },
         {
           provide: CategoriesRepository,
           useValue: {
@@ -961,6 +975,46 @@ describe('DebtsService', () => {
       debts.push(makeDebt({ userId: BIA }));
 
       expect(await service.findReminders(ANA)).toEqual([]);
+    });
+  });
+
+  describe('getSummary', () => {
+    it("sums the user's debts and the positive balances of the people, without the rows", async () => {
+      debts.push(makeDebt(), makeDebt({ userId: BIA }));
+      borrowers.push(
+        {
+          userId: ANA,
+          openingBalance: 1500,
+          transactions: [
+            { type: 'EXPENSE', value: 500, bankAccountId: 'itau' },
+            { type: 'INCOME', value: 300, bankAccountId: 'itau' },
+          ],
+        },
+        {
+          userId: ANA,
+          openingBalance: 0,
+          transactions: [{ type: 'INCOME', value: 100, bankAccountId: 'itau' }],
+        },
+        { userId: BIA, openingBalance: 900, transactions: [] },
+      );
+
+      const summary = await service.getSummary(ANA);
+
+      expect(summary).toEqual({
+        totalOwed: 36000,
+        dueThisMonth: 0,
+        endsIn: '2029-04',
+        owedByPeople: 1700,
+      });
+    });
+
+    it('returns zeros and no end month for a user without debts or people', async () => {
+      await expect(service.getSummary(ANA)).resolves.toEqual({
+        totalOwed: 0,
+        dueThisMonth: 0,
+        endsIn: null,
+        owedByPeople: 0,
+      });
     });
   });
 

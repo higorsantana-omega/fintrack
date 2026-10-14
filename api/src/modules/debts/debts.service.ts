@@ -8,6 +8,7 @@ import {
   DebtWithRelations,
   DebtsRepository,
 } from 'src/database/repositories/debts.repositories';
+import { BorrowersRepository } from 'src/database/repositories/borrowers.repositories';
 import { CategoriesRepository } from 'src/database/repositories/categories.repositories';
 import { isPrismaError } from 'src/database/prisma-errors';
 import {
@@ -35,6 +36,7 @@ import {
   getInstallmentDueDate,
   getNewInstallmentRows,
   getPaymentName,
+  getDebtsSummary,
   getReconciliationPlan,
   hasRegisteredPayment,
 } from './debt-calculations';
@@ -61,6 +63,7 @@ type RowsPlan = Omit<InstallmentsPlan, 'expectedValue'>;
 export class DebtsService {
   constructor(
     private readonly debtsRepository: DebtsRepository,
+    private readonly borrowersRepository: BorrowersRepository,
     private readonly categoriesRepository: CategoriesRepository,
     private readonly validateDebtOwnershipService: ValidateDebtOwnershipService,
     private readonly validateBankAccountOwnershipService: ValidateBankAccountOwnershipService,
@@ -92,6 +95,23 @@ export class DebtsService {
       ...views.filter((view) => view.status !== 'PAID'),
       ...views.filter((view) => view.status === 'PAID'),
     ];
+  }
+
+  /** The four values of R2; the rows stay on the server. */
+  async getSummary(userId: string) {
+    const [debts, borrowers] = await Promise.all([
+      this.debtsRepository.findManyByUserId(userId),
+      this.borrowersRepository.findManyByUserId(userId),
+    ]);
+
+    return getDebtsSummary(
+      debts,
+      borrowers.map(({ openingBalance, transactions }) => ({
+        previousBalance: openingBalance,
+        transactions,
+      })),
+      getToday(),
+    );
   }
 
   async findOne(userId: string, debtId: string) {
