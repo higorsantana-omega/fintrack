@@ -14,8 +14,11 @@ import {
   formatMonthKey,
   getMonthKey,
   getMonthStart,
+  fromCents,
   getToday,
   parseMonthKey,
+  toCalendarDate,
+  toCents,
   toNoonUtc,
 } from 'src/shared/calendar';
 import { ValidateBankAccountOwnershipService } from '../bank-accounts/validate-bank-account-ownership.service';
@@ -23,6 +26,7 @@ import { DEBT_CATEGORY_ICON } from '../categories/categories.constants';
 import { isWithinDateWindow } from '../cards/card-calculations';
 import { ValidateDebtOwnershipService } from './validate-debt-ownership.service';
 import { CreateDebtDto } from './dto/create-debt.dto';
+import { CreateDebtPaymentDto } from './dto/create-debt-payment.dto';
 import { UpdateDebtDto } from './dto/update-debt.dto';
 import { UpdateExpectedValueDto } from './dto/update-expected-value.dto';
 import {
@@ -30,6 +34,7 @@ import {
   getDebtState,
   getInstallmentDueDate,
   getNewInstallmentRows,
+  getPaymentName,
   getReconciliationPlan,
   hasRegisteredPayment,
 } from './debt-calculations';
@@ -42,6 +47,11 @@ const MONTH_OUT_OF_RANGE_MESSAGE =
 const HAS_PAYMENT_MESSAGE =
   'The installments count, the next installment and its month cannot change once an installment has a payment.';
 const NOT_OPEN_MESSAGE = 'The installment is not open.';
+const PAYMENT_OUT_OF_RANGE_MESSAGE =
+  'The installments must be numbered from 1 to the installments count.';
+const DATE_OUT_OF_RANGE_MESSAGE = 'The date must be within ten years of today.';
+const NOT_OPEN_PAYMENT_MESSAGE =
+  'Some of the installments are no longer open. Reload the debt and choose again.';
 const HAS_TRANSACTIONS_MESSAGE =
   'A debt with payments or a loan entry cannot be deleted.';
 
@@ -95,9 +105,6 @@ export class DebtsService {
     const payments = new Map(
       debt.transactions.map((transaction) => [transaction.id, transaction]),
     );
-    const lastPayment = debt.transactions
-      .filter((transaction) => transaction.type === 'EXPENSE')
-      .pop();
 
     return {
       ...this.toDebtView(debt, today),
@@ -128,8 +135,110 @@ export class DebtsService {
       }),
       shortcuts: state.shortcuts,
       reminderNumbers: state.reminderNumbers,
-      lastPaymentBankAccountId: lastPayment?.bankAccountId ?? null,
+      lastPaymentBankAccountId: this.getLastPaymentBankAccountId(debt),
     };
+  }
+
+  /** Debts with an installment in reminder (R21), the nearest due date first. */
+  async findReminders(userId: string) {
+    const today = getToday();
+    const debts = await this.debtsRepository.findOpenByUserId(userId);
+
+    return debts
+      .flatMap((debt) => {
+        const { installments, reminderNumbers } = getDebtState(debt, today);
+        const due = installments.filter(({ number }) =>
+          reminderNumbers.includes(number),
+        );
+
+        return due.length > 0 ? [{ debt, due }] : [];
+      })
+      .sort(
+        (a, b) =>
+          a.due[0].dueDate.getTime() - b.due[0].dueDate.getTime() ||
+          a.debt.name.localeCompare(b.debt.name) ||
+          a.debt.id.localeCompare(b.debt.id),
+      )
+      .map(({ debt, due }) => ({
+        debtId: debt.id,
+        debtName: debt.name,
+        dueDate: toNoonUtc(due[0].dueDate),
+        expectedValue: fromCents(
+          due.reduce(
+            (sum, { expectedValue }) => sum + toCents(expectedValue),
+            0,
+          ),
+        ),
+        installments: due.map((installment) => ({
+          number: installment.number,
+          month: formatMonthKey(getMonthKey(installment.dueMonth)),
+          dueDate: toNoonUtc(installment.dueDate),
+          expectedValue: installment.expectedValue,
+        })),
+        lastPaymentBankAccountId: this.getLastPaymentBankAccountId(debt),
+      }));
+  }
+
+  /**
+   * One expense on the account covers the chosen installments, whatever the
+   * value paid (R19, R20). A selection that is no longer open answers 409.
+   */
+  async pay(
+    userId: string,
+    debtId: string,
+    createDebtPaymentDto: CreateDebtPaymentDto,
+  ) {
+    const today = getToday();
+    const debt = await this.validateDebtOwnershipService.validate(
+      userId,
+      debtId,
+    );
+    const { installmentNumbers, bankAccountId, value } = createDebtPaymentDto;
+    await this.validateBankAccountOwnershipService.validate(
+      userId,
+      bankAccountId,
+    );
+
+    if (
+      installmentNumbers.some((number) => number > debt.installments.length)
+    ) {
+      throw new BadRequestException(PAYMENT_OUT_OF_RANGE_MESSAGE);
+    }
+    const paymentDay = toCalendarDate(new Date(createDebtPaymentDto.date));
+    if (!isWithinDateWindow(paymentDay, today)) {
+      throw new BadRequestException(DATE_OUT_OF_RANGE_MESSAGE);
+    }
+
+    const category = await this.categoriesRepository.findByIcon(
+      userId,
+      DEBT_CATEGORY_ICON,
+      'EXPENSE',
+    );
+    if (!category) {
+      throw new InternalServerErrorException('Debt category not found.');
+    }
+
+    const transaction = await this.debtsRepository.pay(
+      debtId,
+      installmentNumbers,
+      {
+        userId,
+        bankAccountId,
+        categoryId: category.id,
+        name: getPaymentName(
+          debt.name,
+          debt.installments,
+          installmentNumbers,
+          today,
+        ),
+        value,
+        date: toNoonUtc(paymentDay),
+        type: 'EXPENSE',
+      },
+    );
+    if (!transaction) throw new ConflictException(NOT_OPEN_PAYMENT_MESSAGE);
+
+    return transaction;
   }
 
   /**
@@ -286,6 +395,14 @@ export class DebtsService {
       nextInstallment: next.number,
       nextDueMonth: getMonthKey(next.dueMonth),
     };
+  }
+
+  private getLastPaymentBankAccountId(debt: DebtWithRelations) {
+    const lastPayment = debt.transactions
+      .filter((transaction) => transaction.type === 'EXPENSE')
+      .pop();
+
+    return lastPayment?.bankAccountId ?? null;
   }
 
   private toDebtView(debt: DebtWithRelations, today: Date) {

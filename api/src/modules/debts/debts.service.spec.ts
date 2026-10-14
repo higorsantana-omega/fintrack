@@ -18,6 +18,7 @@ import { BankAccountsRepository } from 'src/database/repositories/bank-accounts.
 import { ValidateBankAccountOwnershipService } from '../bank-accounts/validate-bank-account-ownership.service';
 import { getNewInstallmentRows } from './debt-calculations';
 import { CreateDebtDto } from './dto/create-debt.dto';
+import { CreateDebtPaymentDto } from './dto/create-debt-payment.dto';
 import { UpdateDebtDto } from './dto/update-debt.dto';
 import { UpdateExpectedValueDto } from './dto/update-expected-value.dto';
 
@@ -131,6 +132,7 @@ describe('DebtsService', () => {
     deleteError = null;
     categories = [
       { userId: ANA, id: 'ana-debt-income', icon: 'debt', type: 'INCOME' },
+      { userId: ANA, id: 'ana-debt-expense', icon: 'debt', type: 'EXPENSE' },
       { userId: BIA, id: 'bia-debt-income', icon: 'debt', type: 'INCOME' },
     ];
     // Stands in for the database: what the repository writes shows up when
@@ -197,6 +199,29 @@ describe('DebtsService', () => {
               row.paymentTransactionId === null,
           )
           .forEach((row) => (row.expectedValue = value));
+      }),
+      findOpenByUserId: jest.fn(async (userId) =>
+        debts.filter(
+          (debt) =>
+            debt.userId === userId &&
+            debt.installments.some(
+              (row) => !row.paidBeforeApp && row.paymentTransactionId === null,
+            ),
+        ),
+      ),
+      pay: jest.fn(async (debtId, numbers, payment) => {
+        const debt = ownerOf(debtId);
+        const rows = debt.installments.filter(
+          (row) =>
+            numbers.includes(row.number) &&
+            !row.paidBeforeApp &&
+            row.paymentTransactionId === null,
+        );
+        if (rows.length !== numbers.length) return null;
+
+        const transaction = linkTransaction(debt, payment);
+        rows.forEach((row) => (row.paymentTransactionId = transaction.id));
+        return { ...payment, id: transaction.id, debtId };
       }),
       delete: jest.fn(async (debtId) => {
         if (deleteError) throw deleteError;
@@ -655,6 +680,290 @@ describe('DebtsService', () => {
     });
   });
 
+  describe('pay', () => {
+    const payBody = {
+      installmentNumbers: [19, 20],
+      bankAccountId: 'itau',
+      value: 2450,
+      date: '2026-12-15T15:00:00.000Z',
+    };
+
+    function makeOverdueCarro() {
+      const debt = makeDebt();
+      debts.push(debt);
+      return debt;
+    }
+
+    it('AE2: paying 19 and 20 for R$ 2.450 creates one expense with the debt id and both rows point at it', async () => {
+      setToday('2026-12-15T15:00:00.000Z');
+      const debt = makeOverdueCarro();
+
+      const transaction = await service.pay(ANA, debt.id, payBody);
+
+      expect(debtsRepository.pay).toHaveBeenCalledTimes(1);
+      expect(debtsRepository.pay).toHaveBeenCalledWith(debt.id, [19, 20], {
+        userId: ANA,
+        bankAccountId: 'itau',
+        categoryId: 'ana-debt-expense',
+        name: 'Parcelas 19–20/48: Carro',
+        value: 2450,
+        date: noon('2026-12-15'),
+        type: 'EXPENSE',
+      });
+      expect(transaction).toMatchObject({ debtId: debt.id, value: 2450 });
+      expect(debt.transactions).toHaveLength(1);
+      expect(rowOf(debt, 19).paymentTransactionId).toBe(transaction.id);
+      expect(rowOf(debt, 20).paymentTransactionId).toBe(transaction.id);
+      expect(rowOf(debt, 21).paymentTransactionId).toBeNull();
+
+      const carro = await service.findOne(ANA, debt.id);
+      expect(carro).toMatchObject({
+        remaining: 33600,
+        status: 'IN_PROGRESS',
+        paidCount: 20,
+      });
+    });
+
+    it('stores the chosen calendar day at noon UTC', async () => {
+      const debt = makeOverdueCarro();
+
+      await service.pay(ANA, debt.id, {
+        ...payBody,
+        installmentNumbers: [19],
+        date: '2026-10-13T02:30:00.000Z',
+      });
+
+      expect(debtsRepository.pay.mock.calls[0][2]).toMatchObject({
+        name: 'Parcela 19/48: Carro',
+        date: noon('2026-10-12'),
+      });
+    });
+
+    it('AE4: paying every open installment names it a payoff and leaves the debt paid', async () => {
+      const debt = makeOverdueCarro();
+      const open = debt.installments
+        .filter((row) => !row.paidBeforeApp)
+        .map((row) => row.number);
+
+      await service.pay(ANA, debt.id, {
+        ...payBody,
+        installmentNumbers: open,
+        value: 24000,
+      });
+
+      expect(debtsRepository.pay.mock.calls[0][2]).toMatchObject({
+        name: 'Quitação: Carro',
+        value: 24000,
+      });
+      expect(await service.findOne(ANA, debt.id)).toMatchObject({
+        status: 'PAID',
+        remaining: 0,
+      });
+    });
+
+    it('returns 409 and writes nothing when one of the installments is already paid', async () => {
+      const debt = makeOverdueCarro();
+      payInstallment(debt, 19);
+
+      await expect(service.pay(ANA, debt.id, payBody)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+
+      expect(debt.transactions).toHaveLength(1);
+      expect(rowOf(debt, 20).paymentTransactionId).toBeNull();
+    });
+
+    it('returns 409 for an installment paid before the app', async () => {
+      const debt = makeOverdueCarro();
+
+      await expect(
+        service.pay(ANA, debt.id, { ...payBody, installmentNumbers: [5] }),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(debt.transactions).toEqual([]);
+    });
+
+    it('returns 400 for a number greater than the installments count', async () => {
+      const debt = makeOverdueCarro();
+
+      await expect(
+        service.pay(ANA, debt.id, { ...payBody, installmentNumbers: [48, 49] }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(debtsRepository.pay).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 for a date outside the 120-month window', async () => {
+      const debt = makeOverdueCarro();
+
+      await expect(
+        service.pay(ANA, debt.id, {
+          ...payBody,
+          date: '2037-01-15T15:00:00.000Z',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        service.pay(ANA, debt.id, {
+          ...payBody,
+          date: '2016-07-15T15:00:00.000Z',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(debtsRepository.pay).not.toHaveBeenCalled();
+    });
+
+    it("returns 404 for another user's bank account and writes nothing", async () => {
+      const debt = makeOverdueCarro();
+
+      await expect(
+        service.pay(ANA, debt.id, { ...payBody, bankAccountId: 'bia-account' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(debtsRepository.pay).not.toHaveBeenCalled();
+      expect(debt.transactions).toEqual([]);
+    });
+
+    it("returns 404 for another user's debt", async () => {
+      const debt = makeDebt({ userId: BIA });
+      debts.push(debt);
+
+      await expect(service.pay(ANA, debt.id, payBody)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(debtsRepository.pay).not.toHaveBeenCalled();
+    });
+
+    it('fails with an error and writes nothing when the debt category does not exist', async () => {
+      const debt = makeOverdueCarro();
+      categories = categories.filter(({ type }) => type !== 'EXPENSE');
+
+      await expect(service.pay(ANA, debt.id, payBody)).rejects.toBeInstanceOf(
+        InternalServerErrorException,
+      );
+      expect(debtsRepository.pay).not.toHaveBeenCalled();
+      expect(debt.transactions).toEqual([]);
+    });
+  });
+
+  describe('findReminders', () => {
+    function makeLoan(overrides: Partial<DebtWithRelations>) {
+      return makeDebt({
+        installments: getNewInstallmentRows({
+          installmentsCount: 12,
+          nextInstallment: 1,
+          nextDueMonth: 2027 * 12,
+          expectedValue: 500,
+        }).map((row) => ({ ...row, paymentTransactionId: null })),
+        ...overrides,
+      });
+    }
+
+    it('AE6: lists the Carro with installment 19 due on 10/11 when the app opens on 6/11', async () => {
+      setToday('2026-11-06T15:00:00.000Z');
+      const carro = makeDebt();
+      debts.push(carro);
+
+      const reminders = await service.findReminders(ANA);
+
+      expect(reminders).toEqual([
+        {
+          debtId: carro.id,
+          debtName: 'Carro',
+          dueDate: noon('2026-11-10'),
+          expectedValue: 1200,
+          installments: [
+            {
+              number: 19,
+              month: '2026-11',
+              dueDate: noon('2026-11-10'),
+              expectedValue: 1200,
+            },
+          ],
+          lastPaymentBankAccountId: null,
+        },
+      ]);
+    });
+
+    it('AE14: lists the Moto on 29/12 with the January installment due on the 2nd', async () => {
+      setToday('2026-12-29T15:00:00.000Z');
+      const moto = makeLoan({ name: 'Moto', dueDay: 2 });
+      debts.push(moto);
+
+      const reminders = await service.findReminders(ANA);
+
+      expect(reminders).toHaveLength(1);
+      expect(reminders[0]).toMatchObject({
+        debtName: 'Moto',
+        dueDate: noon('2027-01-02'),
+        installments: [
+          {
+            number: 1,
+            month: '2027-01',
+            dueDate: noon('2027-01-02'),
+            expectedValue: 500,
+          },
+        ],
+      });
+    });
+
+    it('orders by the nearest due date, then by name, then by id, and leaves out debts with nothing due soon', async () => {
+      setToday('2026-11-06T15:00:00.000Z');
+      const carro = makeDebt();
+      const moto = makeLoan({
+        id: 'debt-b',
+        name: 'Moto',
+        dueDay: 8,
+        installments: getNewInstallmentRows({
+          installmentsCount: 12,
+          nextInstallment: 1,
+          nextDueMonth: 2026 * 12 + 10,
+          expectedValue: 500,
+        }).map((row) => ({ ...row, paymentTransactionId: null })),
+      });
+      const celular = makeDebt({ id: 'debt-a', name: 'Celular', dueDay: 10 });
+      const far = makeLoan({ name: 'Reforma', dueDay: 28 });
+      debts.push(carro, far, celular, moto);
+
+      const reminders = await service.findReminders(ANA);
+
+      expect(reminders.map((reminder) => reminder.debtName)).toEqual([
+        'Moto',
+        'Carro',
+        'Celular',
+      ]);
+    });
+
+    it('AE4: leaves out a paid debt', async () => {
+      setToday('2026-11-06T15:00:00.000Z');
+      const carro = makeDebt();
+      carro.installments.forEach((row) => (row.paidBeforeApp = true));
+      debts.push(carro);
+
+      expect(await service.findReminders(ANA)).toEqual([]);
+    });
+
+    it('sums the expected values of the reminder installments in cents and carries the last payment account', async () => {
+      setToday('2026-12-08T15:00:00.000Z');
+      const carro = makeDebt();
+      payInstallment(carro, 19);
+      rowOf(carro, 20).expectedValue = 1200.1;
+      rowOf(carro, 21).dueMonth = monthDate('2026-12');
+      rowOf(carro, 21).expectedValue = 1200.2;
+      debts.push(carro);
+
+      const [reminder] = await service.findReminders(ANA);
+
+      expect(reminder.installments.map(({ number }) => number)).toEqual([
+        20, 21,
+      ]);
+      expect(reminder.expectedValue).toBe(2400.3);
+      expect(reminder.lastPaymentBankAccountId).toBe('itau');
+    });
+
+    it("leaves out another user's debts", async () => {
+      setToday('2026-11-06T15:00:00.000Z');
+      debts.push(makeDebt({ userId: BIA }));
+
+      expect(await service.findReminders(ANA)).toEqual([]);
+    });
+  });
+
   describe('user scoping', () => {
     it("returns 404 for another user's debt on every route", async () => {
       const debt = makeDebt({ userId: BIA });
@@ -748,5 +1057,35 @@ describe('debt request validation', () => {
     await expect(
       validate({ fromInstallment: 20, value: 1.005 }, UpdateExpectedValueDto),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  describe('payment', () => {
+    const paymentBody = {
+      installmentNumbers: [19, 20],
+      bankAccountId: '33333333-3333-3333-3333-333333333333',
+      value: 2450,
+      date: '2026-12-15',
+    };
+
+    it('accepts a list of numbers, an account, a two-decimal value and a date', async () => {
+      await expect(
+        validate(paymentBody, CreateDebtPaymentDto),
+      ).resolves.toEqual(paymentBody);
+    });
+
+    it.each([
+      ['an empty list', { installmentNumbers: [] }],
+      ['a repeated number', { installmentNumbers: [19, 19] }],
+      ['a number of 0', { installmentNumbers: [0, 19] }],
+      ['a fractional number', { installmentNumbers: [19.5] }],
+      ['a zero value', { value: 0 }],
+      ['a value with three decimals', { value: 10.555 }],
+      ['an account that is not a uuid', { bankAccountId: 'itau' }],
+      ['a date that is not a date', { date: 'ontem' }],
+    ])('rejects %s with 400', async (_, override) => {
+      await expect(
+        validate({ ...paymentBody, ...override }, CreateDebtPaymentDto),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
   });
 });

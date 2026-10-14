@@ -13,6 +13,7 @@ import {
 import ActiveUserId from 'src/decorators/activeUserId.decorator';
 import { DebtsService } from './debts.service';
 import { CreateDebtDto } from './dto/create-debt.dto';
+import { CreateDebtPaymentDto } from './dto/create-debt-payment.dto';
 import { UpdateDebtDto } from './dto/update-debt.dto';
 import { UpdateExpectedValueDto } from './dto/update-expected-value.dto';
 
@@ -30,12 +31,26 @@ export class DebtsController {
     return this.debtsService.findAllByUserId(userId);
   }
 
+  @Get('reminders')
+  findReminders(@ActiveUserId() userId: string) {
+    return this.debtsService.findReminders(userId);
+  }
+
   @Get(':debtId')
   findOne(
     @ActiveUserId() userId: string,
     @Param('debtId', ParseUUIDPipe) debtId: string,
   ) {
     return this.debtsService.findOne(userId, debtId);
+  }
+
+  @Post(':debtId/payments')
+  pay(
+    @ActiveUserId() userId: string,
+    @Param('debtId', ParseUUIDPipe) debtId: string,
+    @Body() createDebtPaymentDto: CreateDebtPaymentDto,
+  ) {
+    return this.debtsService.pay(userId, debtId, createDebtPaymentDto);
   }
 
   @Put(':debtId')

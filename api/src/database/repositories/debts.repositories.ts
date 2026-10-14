@@ -39,11 +39,18 @@ export type DebtEntryData = Omit<
   'debtId'
 >;
 
+export type DebtPaymentData = Omit<
+  Prisma.TransactionUncheckedCreateInput,
+  'debtId'
+>;
+
 export type InstallmentsReconciliation = {
   update: NewInstallmentRow[];
   create: NewInstallmentRow[];
   removeNumbers: number[];
 };
+
+class InstallmentsNotOpenError extends Error {}
 
 // Reconciling a 480-installment debt updates its rows one by one.
 const RECONCILIATION_TIMEOUT_MS = 30000;
@@ -76,6 +83,20 @@ export class DebtsRepository {
   findManyByUserId(userId: string): Promise<DebtWithRelations[]> {
     return this.prismaService.debt.findMany({
       where: { userId },
+      include: debtInclude,
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  /** Only the debts with an open installment, so paid debts are not read. */
+  findOpenByUserId(userId: string): Promise<DebtWithRelations[]> {
+    return this.prismaService.debt.findMany({
+      where: {
+        userId,
+        installments: {
+          some: { paidBeforeApp: false, paymentTransactionId: null },
+        },
+      },
       include: debtInclude,
       orderBy: { createdAt: 'asc' },
     });
@@ -118,6 +139,37 @@ export class DebtsRepository {
       },
       { timeout: RECONCILIATION_TIMEOUT_MS },
     );
+  }
+
+  /**
+   * Creates the expense and marks the installments as paid by it, in one
+   * database transaction (KTD3). Resolves to null, with nothing written, when
+   * any of the installments is no longer open.
+   */
+  async pay(debtId: string, numbers: number[], payment: DebtPaymentData) {
+    try {
+      return await this.prismaService.$transaction(async (tx) => {
+        const transaction = await tx.transaction.create({
+          data: { ...payment, debtId },
+        });
+        const { count } = await tx.debtInstallment.updateMany({
+          where: {
+            debtId,
+            number: { in: numbers },
+            paymentTransactionId: null,
+            paidBeforeApp: false,
+          },
+          data: { paymentTransactionId: transaction.id },
+        });
+
+        if (count !== numbers.length) throw new InstallmentsNotOpenError();
+
+        return transaction;
+      });
+    } catch (error) {
+      if (error instanceof InstallmentsNotOpenError) return null;
+      throw error;
+    }
   }
 
   /** Sets the expected value of the open installments from a number on (R11). */
