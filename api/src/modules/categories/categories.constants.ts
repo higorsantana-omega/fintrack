@@ -1,5 +1,6 @@
-// Expense categories every user gets. The create_cards migration repeats
-// these values in SQL for the users that existed before it.
+// Category names and icons every user gets. The create_cards and
+// create_debts migrations repeat these values in SQL for the users that
+// existed before them.
 export const DEFAULT_EXPENSE_CATEGORIES = [
   { name: 'Alimentação', icon: 'food' },
   { name: 'Mercado', icon: 'grocery' },
@@ -13,3 +14,8 @@ export const DEFAULT_EXPENSE_CATEGORIES = [
 
 export const CARD_PAYMENT_CATEGORY_NAME = 'Fatura de cartão';
 export const CARD_PAYMENT_CATEGORY_ICON = 'credit-card';
+
+export const DEBT_CATEGORY_NAME = 'Dívidas';
+export const DEBT_CATEGORY_ICON = 'debt';
+export const LOAN_CATEGORY_NAME = 'Empréstimos';
+export const LOAN_CATEGORY_ICON = 'loan';

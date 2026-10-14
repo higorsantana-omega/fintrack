@@ -15,7 +15,11 @@ import {
 import {
   CARD_PAYMENT_CATEGORY_ICON,
   CARD_PAYMENT_CATEGORY_NAME,
+  DEBT_CATEGORY_ICON,
+  DEBT_CATEGORY_NAME,
   DEFAULT_EXPENSE_CATEGORIES,
+  LOAN_CATEGORY_ICON,
+  LOAN_CATEGORY_NAME,
 } from '../categories/categories.constants';
 
 @Injectable()
@@ -77,6 +81,26 @@ export class AuthService {
                 name: CARD_PAYMENT_CATEGORY_NAME,
                 icon: CARD_PAYMENT_CATEGORY_ICON,
                 type: 'EXPENSE',
+              },
+              {
+                name: DEBT_CATEGORY_NAME,
+                icon: DEBT_CATEGORY_ICON,
+                type: 'EXPENSE',
+              },
+              {
+                name: DEBT_CATEGORY_NAME,
+                icon: DEBT_CATEGORY_ICON,
+                type: 'INCOME',
+              },
+              {
+                name: LOAN_CATEGORY_NAME,
+                icon: LOAN_CATEGORY_ICON,
+                type: 'EXPENSE',
+              },
+              {
+                name: LOAN_CATEGORY_NAME,
+                icon: LOAN_CATEGORY_ICON,
+                type: 'INCOME',
               },
             ],
           },

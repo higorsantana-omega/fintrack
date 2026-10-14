@@ -20,6 +20,8 @@ model User {
   transactions Transaction[]
   goals        Goal[]
   creditCards  CreditCard[]
+  debts        Debt[]
+  borrowers    Borrower[]
 
   @@map("user")
 }
@@ -74,17 +76,22 @@ model Transaction {
   categoryId       String?         @db.Uuid
   goalId           String?         @db.Uuid
   creditCardId     String?         @db.Uuid
+  debtId           String?         @db.Uuid
+  borrowerId       String?         @db.Uuid
   cardInvoiceMonth DateTime?       @db.Date
   name             String
   value            Float
   date             DateTime
   type             TransactionType
 
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
-  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  goal        Goal?       @relation(fields: [goalId], references: [id], onDelete: NoAction)
-  creditCard  CreditCard? @relation(fields: [creditCardId], references: [id], onDelete: NoAction)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankAccount      BankAccount       @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  category         Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  goal             Goal?             @relation(fields: [goalId], references: [id], onDelete: NoAction)
+  creditCard       CreditCard?       @relation(fields: [creditCardId], references: [id], onDelete: NoAction)
+  debt             Debt?             @relation(fields: [debtId], references: [id], onDelete: NoAction)
+  borrower         Borrower?         @relation(fields: [borrowerId], references: [id], onDelete: NoAction)
+  debtInstallments DebtInstallment[]
 
   @@map("transactions")
 }
@@ -218,4 +225,49 @@ model RecurringCharge {
   charges    CardPurchase[]
 
   @@map("recurringCharge")
+}
+
+model Debt {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  name      String
+  dueDay    Int
+  createdAt DateTime @default(now())
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  installments DebtInstallment[]
+  transactions Transaction[]
+
+  @@map("debt")
+}
+
+model DebtInstallment {
+  id                   String   @id @default(uuid()) @db.Uuid
+  debtId               String   @db.Uuid
+  paymentTransactionId String?  @db.Uuid
+  number               Int
+  // Due month (first day of the month).
+  dueMonth             DateTime @db.Date
+  expectedValue        Float
+  paidBeforeApp        Boolean  @default(false)
+
+  debt               Debt         @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  paymentTransaction Transaction? @relation(fields: [paymentTransactionId], references: [id], onDelete: SetNull)
+
+  @@unique([debtId, number])
+  @@index([paymentTransactionId])
+  @@map("debtInstallment")
+}
+
+model Borrower {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  name           String
+  openingBalance Float    @default(0)
+  createdAt      DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@map("borrower")
 }
