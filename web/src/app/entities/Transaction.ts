@@ -8,6 +8,8 @@ export interface Transaction {
   categoryId?: string
   bankAccountId?: string
   goalId?: string | null
+  debtId?: string | null
+  borrowerId?: string | null
 
   category?: {
     id: string
