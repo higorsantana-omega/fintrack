@@ -11,7 +11,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { MONTH_PATTERN } from 'src/pipes/ParseMonthPipe';
-import { MAX_INSTALLMENTS } from '../debts.constants';
+import { MAX_DEBT_INSTALLMENTS } from '../debts.constants';
 
 const hasEntry = (dto: CreateDebtDto) =>
   dto.entryBankAccountId != null || dto.entryValue != null;
@@ -27,7 +27,7 @@ export class CreateDebtDto {
 
   @IsInt()
   @Min(1)
-  @Max(MAX_INSTALLMENTS)
+  @Max(MAX_DEBT_INSTALLMENTS)
   installmentsCount: number;
 
   @IsInt()

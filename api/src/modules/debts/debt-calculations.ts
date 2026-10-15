@@ -77,7 +77,7 @@ export type BorrowerTransaction = {
 };
 
 export type BorrowerSnapshot = {
-  previousBalance: number;
+  openingBalance: number;
   /** Loans are expenses and returns are incomes. */
   transactions: BorrowerTransaction[];
 };
@@ -317,7 +317,7 @@ function getBalanceCents(borrower: BorrowerSnapshot) {
   return borrower.transactions.reduce(
     (cents, { type, value }) =>
       cents + (type === 'EXPENSE' ? toCents(value) : -toCents(value)),
-    toCents(borrower.previousBalance),
+    toCents(borrower.openingBalance),
   );
 }
 

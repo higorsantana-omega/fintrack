@@ -34,12 +34,8 @@ export type DebtWithRelations = Prisma.DebtGetPayload<{
 
 export type DebtData = { name: string; dueDay: number };
 
-export type DebtEntryData = Omit<
-  Prisma.TransactionUncheckedCreateInput,
-  'debtId'
->;
-
-export type DebtPaymentData = Omit<
+/** A transaction the repository links to the debt: the loan entry or a payment. */
+export type DebtTransactionData = Omit<
   Prisma.TransactionUncheckedCreateInput,
   'debtId'
 >;
@@ -64,7 +60,7 @@ export class DebtsRepository {
     userId: string,
     data: DebtData,
     rows: NewInstallmentRow[],
-    entry: DebtEntryData | null,
+    entry: DebtTransactionData | null,
   ) {
     return this.prismaService.$transaction(async (tx) => {
       const debt = await tx.debt.create({ data: { userId, ...data } });
@@ -146,7 +142,7 @@ export class DebtsRepository {
    * database transaction (KTD3). Resolves to null, with nothing written, when
    * any of the installments is no longer open.
    */
-  async pay(debtId: string, numbers: number[], payment: DebtPaymentData) {
+  async pay(debtId: string, numbers: number[], payment: DebtTransactionData) {
     try {
       return await this.prismaService.$transaction(async (tx) => {
         const transaction = await tx.transaction.create({

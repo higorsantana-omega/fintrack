@@ -25,15 +25,16 @@ import {
 import { ValidateBankAccountOwnershipService } from '../bank-accounts/validate-bank-account-ownership.service';
 import { DEBT_CATEGORY_ICON } from '../categories/categories.constants';
 import { isWithinDateWindow } from '../cards/card-calculations';
+import { DATE_OUT_OF_RANGE_MESSAGE } from '../cards/cards.constants';
 import { ValidateDebtOwnershipService } from './validate-debt-ownership.service';
 import { CreateDebtDto } from './dto/create-debt.dto';
 import { CreateDebtPaymentDto } from './dto/create-debt-payment.dto';
 import { UpdateDebtDto } from './dto/update-debt.dto';
 import { UpdateExpectedValueDto } from './dto/update-expected-value.dto';
 import {
+  DebtInstallment,
   InstallmentsPlan,
   getDebtState,
-  getInstallmentDueDate,
   getNewInstallmentRows,
   getPaymentName,
   getDebtsSummary,
@@ -51,7 +52,6 @@ const HAS_PAYMENT_MESSAGE =
 const NOT_OPEN_MESSAGE = 'The installment is not open.';
 const PAYMENT_OUT_OF_RANGE_MESSAGE =
   'The installments must be numbered from 1 to the installments count.';
-const DATE_OUT_OF_RANGE_MESSAGE = 'The date must be within ten years of today.';
 const NOT_OPEN_PAYMENT_MESSAGE =
   'Some of the installments are no longer open. Reload the debt and choose again.';
 const HAS_TRANSACTIONS_MESSAGE =
@@ -104,14 +104,7 @@ export class DebtsService {
       this.borrowersRepository.findManyByUserId(userId),
     ]);
 
-    return getDebtsSummary(
-      debts,
-      borrowers.map(({ openingBalance, transactions }) => ({
-        previousBalance: openingBalance,
-        transactions,
-      })),
-      getToday(),
-    );
+    return getDebtsSummary(debts, borrowers, getToday());
   }
 
   async findOne(userId: string, debtId: string) {
@@ -138,10 +131,7 @@ export class DebtsService {
         const payment = payments.get(installment.paymentTransactionId);
 
         return {
-          number: installment.number,
-          month: formatMonthKey(getMonthKey(installment.dueMonth)),
-          dueDate: toNoonUtc(installment.dueDate),
-          expectedValue: installment.expectedValue,
+          ...this.toInstallmentView(installment),
           state: installment.state,
           payment: payment
             ? {
@@ -189,12 +179,9 @@ export class DebtsService {
             0,
           ),
         ),
-        installments: due.map((installment) => ({
-          number: installment.number,
-          month: formatMonthKey(getMonthKey(installment.dueMonth)),
-          dueDate: toNoonUtc(installment.dueDate),
-          expectedValue: installment.expectedValue,
-        })),
+        installments: due.map((installment) =>
+          this.toInstallmentView(installment),
+        ),
         lastPaymentBankAccountId: this.getLastPaymentBankAccountId(debt),
       }));
   }
@@ -441,16 +428,16 @@ export class DebtsService {
       remaining: state.remaining,
       endsIn: state.endsIn,
       status: state.status,
-      nextInstallment: next
-        ? {
-            number: next.number,
-            month: formatMonthKey(getMonthKey(next.dueMonth)),
-            dueDate: toNoonUtc(
-              getInstallmentDueDate(debt.dueDay, next.dueMonth),
-            ),
-            expectedValue: next.expectedValue,
-          }
-        : null,
+      nextInstallment: next ? this.toInstallmentView(next) : null,
+    };
+  }
+
+  private toInstallmentView(installment: DebtInstallment) {
+    return {
+      number: installment.number,
+      month: formatMonthKey(getMonthKey(installment.dueMonth)),
+      dueDate: toNoonUtc(installment.dueDate),
+      expectedValue: installment.expectedValue,
     };
   }
 }

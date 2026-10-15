@@ -7,16 +7,13 @@ import { useDebt } from '../../../app/hooks/useDebt'
 import { debtsService } from '../../../app/services/debtsService'
 import { getApiErrorPayload } from '../../../app/utils/getApiErrorPayload'
 import { invalidateMoneyQueries } from '../../../app/utils/invalidateMoneyQueries'
+import { getInstallmentYear, isOpenInstallment } from '../../../app/utils/debtInstallments'
 import { usePayDebt } from '../../components/PayDebtModal/usePayDebt'
 
 type DebtDetailModal =
   | { name: 'edit' }
   | { name: 'delete' }
   | { name: 'adjust', installment: DebtInstallment }
-
-function isOpen(installment: DebtInstallment) {
-  return installment.state === 'OPEN' || installment.state === 'OVERDUE'
-}
 
 export function useDebtDetailController() {
   const { debtId = '' } = useParams()
@@ -42,12 +39,14 @@ export function useDebtDetailController() {
     const byYear = new Map<string, DebtInstallment[]>()
 
     for (const installment of debt?.installments ?? []) {
-      const year = installment.month.slice(0, 4)
-      byYear.set(year, [...(byYear.get(year) ?? []), installment])
+      const year = getInstallmentYear(installment)
+      const list = byYear.get(year) ?? []
+      list.push(installment)
+      byYear.set(year, list)
     }
 
     return [...byYear].map(([year, installments]) => {
-      const openCount = installments.filter(isOpen).length
+      const openCount = installments.filter(isOpenInstallment).length
 
       return {
         year,

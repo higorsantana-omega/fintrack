@@ -11,6 +11,7 @@ import { currencyStringToNumber } from '../../../app/utils/currencyStringToNumbe
 import { getApiErrorPayload } from '../../../app/utils/getApiErrorPayload'
 import { positiveCurrency, toCalendarNoonIso } from '../../../app/utils/goalForm'
 import { invalidateMoneyQueries } from '../../../app/utils/invalidateMoneyQueries'
+import { getInstallmentYear, isOpenInstallment } from '../../../app/utils/debtInstallments'
 
 const schema = z.object({
   bankAccountId: z.string().nonempty('Informe a conta'),
@@ -30,14 +31,6 @@ function sumExpectedValues(installments: DebtInstallment[]) {
   return cents / 100
 }
 
-function isOpen(installment: DebtInstallment) {
-  return installment.state === 'OPEN' || installment.state === 'OVERDUE'
-}
-
-function getYear(installment: DebtInstallment) {
-  return installment.month.slice(0, 4)
-}
-
 export function usePayDebtModalController(debt: DebtDetail, initialNumbers: number[], onPaid: () => void) {
   const { accounts } = useBankAccounts()
   const queryClient = useQueryClient()
@@ -47,7 +40,7 @@ export function usePayDebtModalController(debt: DebtDetail, initialNumbers: numb
   const [toggledYears, setToggledYears] = useState<Record<string, boolean>>({})
   const [hasConflict, setHasConflict] = useState(false)
 
-  const openInstallments = debt.installments.filter(isOpen)
+  const openInstallments = debt.installments.filter(isOpenInstallment)
   // After a refetch, a number paid elsewhere drops out of the selection.
   const selected = openInstallments.filter(({ number }) => selectedNumbers.includes(number))
   const expectedSum = sumExpectedValues(selected)
@@ -74,8 +67,8 @@ export function usePayDebtModalController(debt: DebtDetail, initialNumbers: numb
   }, [expectedSum, isValueEdited, setValue])
 
   const currentYear = String(new Date().getFullYear())
-  const years = [...new Set(openInstallments.map(getYear))].map(year => {
-    const installments = openInstallments.filter(installment => getYear(installment) === year)
+  const years = [...new Set(openInstallments.map(getInstallmentYear))].map(year => {
+    const installments = openInstallments.filter(installment => getInstallmentYear(installment) === year)
 
     return {
       year,
@@ -99,7 +92,7 @@ export function usePayDebtModalController(debt: DebtDetail, initialNumbers: numb
     // The marked installments must be in view.
     setToggledYears(previous => ({
       ...previous,
-      ...Object.fromEntries(marked.map(installment => [getYear(installment), true]))
+      ...Object.fromEntries(marked.map(installment => [getInstallmentYear(installment), true]))
     }))
     changeSelection(marked.map(({ number }) => number))
   }

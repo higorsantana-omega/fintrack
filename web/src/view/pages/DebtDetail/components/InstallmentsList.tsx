@@ -3,6 +3,7 @@ import { cn } from '../../../../app/utils/cn'
 import { formatCurrency } from '../../../../app/utils/formatCurrency'
 import { formatDate } from '../../../../app/utils/formatDate'
 import { formatMonth } from '../../../../app/utils/formatMonth'
+import { isOpenInstallment } from '../../../../app/utils/debtInstallments'
 import { INSTALLMENT_STATE_LABELS } from '../../../constants/DebtConstants'
 
 interface InstallmentsListProps {
@@ -57,7 +58,7 @@ interface InstallmentRowProps {
 
 function InstallmentRow({ installment, installmentsCount, onAdjust }: InstallmentRowProps) {
   const { number, state, payment } = installment
-  const isOpen = state === 'OPEN' || state === 'OVERDUE'
+  const isOpen = isOpenInstallment(installment)
 
   return (
     <div

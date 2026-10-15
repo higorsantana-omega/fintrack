@@ -98,11 +98,10 @@ export class BankAccountsService {
     }
 
     if (!confirm) {
-      const invoices = await this.getReopenedInvoices(userId, bankAccountId);
-      const { debts, borrowers } = await this.getDebtsImpact(
-        userId,
-        bankAccountId,
-      );
+      const [invoices, { debts, borrowers }] = await Promise.all([
+        this.getReopenedInvoices(userId, bankAccountId),
+        this.getDebtsImpact(userId, bankAccountId),
+      ]);
 
       if (invoices.length + debts.length + borrowers.length > 0) {
         throw new ConflictException({
@@ -148,13 +147,6 @@ export class BankAccountsService {
       this.borrowersRepository.findManyByUserId(userId),
     ]);
 
-    return getAccountDeletionImpact(
-      bankAccountId,
-      debts,
-      borrowers.map((borrower) => ({
-        ...borrower,
-        previousBalance: borrower.openingBalance,
-      })),
-    );
+    return getAccountDeletionImpact(bankAccountId, debts, borrowers);
   }
 }

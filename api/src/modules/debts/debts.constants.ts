@@ -1,4 +1,4 @@
-export const MAX_INSTALLMENTS = 480;
+export const MAX_DEBT_INSTALLMENTS = 480;
 
 // Payment names show this many ranges; the rest is summarised as "e mais N".
 export const MAX_PAYMENT_NAME_RANGES = 3;

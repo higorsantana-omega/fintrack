@@ -8,7 +8,7 @@ import {
   Min,
 } from 'class-validator';
 import { MONTH_PATTERN } from 'src/pipes/ParseMonthPipe';
-import { MAX_INSTALLMENTS } from '../debts.constants';
+import { MAX_DEBT_INSTALLMENTS } from '../debts.constants';
 
 export class UpdateDebtDto {
   @IsString()
@@ -24,7 +24,7 @@ export class UpdateDebtDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(MAX_INSTALLMENTS)
+  @Max(MAX_DEBT_INSTALLMENTS)
   installmentsCount?: number;
 
   @IsOptional()

@@ -5,13 +5,13 @@ import { currencyStringToNumber } from './currencyStringToNumber'
 import { positiveCurrency } from './goalForm'
 import { getMonthKey, toGoalsCalendarDate } from './goalPlanning'
 
-// Mirror MAX_INSTALLMENTS and the date window of the API.
+// Mirror MAX_DEBT_INSTALLMENTS and the date window of the API.
 export const MAX_DEBT_INSTALLMENTS = 480
 const MAX_MONTH_DISTANCE = 120
 
-const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/
+export const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/
 
-const integerBetween = (min: number, max: number, message: string) => z.coerce.number()
+export const integerBetween = (min: number, max: number, message: string) => z.coerce.number()
   .int(message)
   .min(min, message)
   .max(max, message)

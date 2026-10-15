@@ -5,13 +5,8 @@ import toast from 'react-hot-toast'
 import { z } from 'zod'
 import { DebtDetail } from '../../../../../app/entities/Debt'
 import { debtsService } from '../../../../../app/services/debtsService'
-import { MAX_DEBT_INSTALLMENTS } from '../../../../../app/utils/debtForm'
+import { MAX_DEBT_INSTALLMENTS, MONTH_PATTERN, integerBetween } from '../../../../../app/utils/debtForm'
 import { getApiErrorPayload } from '../../../../../app/utils/getApiErrorPayload'
-
-const integerBetween = (min: number, max: number, message: string) => z.coerce.number()
-  .int(message)
-  .min(min, message)
-  .max(max, message)
 
 const editDebtSchema = z.object({
   name: z.string().nonempty('Informe o nome da dívida'),
@@ -20,7 +15,7 @@ const editDebtSchema = z.object({
   nextInstallment: z.coerce.number()
     .int('Informe a próxima parcela')
     .min(1, 'Informe a próxima parcela'),
-  nextInstallmentMonth: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Informe o mês da próxima parcela')
+  nextInstallmentMonth: z.string().regex(MONTH_PATTERN, 'Informe o mês da próxima parcela')
 }).superRefine((data, ctx) => {
   if (data.nextInstallment > data.installmentsCount) {
     ctx.addIssue({

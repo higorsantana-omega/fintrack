@@ -416,8 +416,8 @@ describe('getReconciliationPlan', () => {
 });
 
 describe('getDebtsSummary', () => {
-  const borrower = (previousBalance: number): BorrowerSnapshot => ({
-    previousBalance,
+  const borrower = (openingBalance: number): BorrowerSnapshot => ({
+    openingBalance,
     transactions: [],
   });
 
@@ -469,7 +469,7 @@ describe('getBorrowerBalance', () => {
 
   it('AE8: previous balance plus loans minus returns', () => {
     const joao: BorrowerSnapshot = {
-      previousBalance: 1500,
+      openingBalance: 1500,
       transactions: [tx('EXPENSE', 500), tx('INCOME', 300)],
     };
 
@@ -482,7 +482,7 @@ describe('getBorrowerBalance', () => {
 
   it('AE9: a return without its loan leaves a negative balance', () => {
     const joao: BorrowerSnapshot = {
-      previousBalance: 0,
+      openingBalance: 0,
       transactions: [tx('INCOME', 500)],
     };
 
@@ -498,7 +498,7 @@ describe('getBorrowerBalance', () => {
 
   it('sums cents exactly', () => {
     const joao: BorrowerSnapshot = {
-      previousBalance: 0,
+      openingBalance: 0,
       transactions: [tx('EXPENSE', 0.1), tx('EXPENSE', 0.2)],
     };
 
@@ -522,7 +522,7 @@ describe('getAccountDeletionImpact', () => {
   const joao = {
     id: 'joao',
     name: 'João',
-    previousBalance: 1500,
+    openingBalance: 1500,
     transactions: [
       { type: 'EXPENSE' as const, value: 500, bankAccountId: 'inter' },
       { type: 'INCOME' as const, value: 300, bankAccountId: itau },

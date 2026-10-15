@@ -5,10 +5,7 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import {
-  BorrowerWithRelations,
-  BorrowersRepository,
-} from 'src/database/repositories/borrowers.repositories';
+import { BorrowersRepository } from 'src/database/repositories/borrowers.repositories';
 import { CategoriesRepository } from 'src/database/repositories/categories.repositories';
 import { TransactionsRepository } from 'src/database/repositories/transactions.repositories';
 import { isPrismaError } from 'src/database/prisma-errors';
@@ -21,6 +18,7 @@ import {
 import { ValidateBankAccountOwnershipService } from '../bank-accounts/validate-bank-account-ownership.service';
 import { LOAN_CATEGORY_ICON } from '../categories/categories.constants';
 import { isWithinDateWindow } from '../cards/card-calculations';
+import { DATE_OUT_OF_RANGE_MESSAGE } from '../cards/cards.constants';
 import { ValidateBorrowerOwnershipService } from './validate-borrower-ownership.service';
 import { CreateBorrowerDto } from './dto/create-borrower.dto';
 import {
@@ -32,7 +30,6 @@ import { getBorrowerBalance } from './debt-calculations';
 
 const LOAN_NAME_PREFIX = 'Empréstimo';
 const RETURN_NAME_PREFIX = 'Devolução';
-const DATE_OUT_OF_RANGE_MESSAGE = 'The date must be within ten years of today.';
 const HAS_TRANSACTIONS_MESSAGE = 'A person with movements cannot be deleted.';
 const RETURN_ABOVE_BALANCE_MESSAGE =
   'The return cannot be greater than what the person owes.';
@@ -61,7 +58,7 @@ export class BorrowersService {
     return borrowers.map((borrower) => ({
       id: borrower.id,
       name: borrower.name,
-      ...getBorrowerBalance(this.toSnapshot(borrower)),
+      ...getBorrowerBalance(borrower),
     }));
   }
 
@@ -75,7 +72,7 @@ export class BorrowersService {
       id: borrower.id,
       name: borrower.name,
       openingBalance: borrower.openingBalance,
-      ...getBorrowerBalance(this.toSnapshot(borrower)),
+      ...getBorrowerBalance(borrower),
       movements: borrower.transactions.map((transaction) => ({
         id: transaction.id,
         name: transaction.name,
@@ -155,7 +152,7 @@ export class BorrowersService {
     }
 
     if (isReturn) {
-      const { maxReturn } = getBorrowerBalance(this.toSnapshot(borrower));
+      const { maxReturn } = getBorrowerBalance(borrower);
 
       if (toCents(value) > toCents(maxReturn)) {
         throw new ConflictException({
@@ -179,12 +176,5 @@ export class BorrowersService {
       date: toNoonUtc(day),
       type,
     });
-  }
-
-  private toSnapshot(borrower: BorrowerWithRelations) {
-    return {
-      previousBalance: borrower.openingBalance,
-      transactions: borrower.transactions,
-    };
   }
 }
