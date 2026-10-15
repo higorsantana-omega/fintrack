@@ -10,6 +10,7 @@ import { GoalDetail } from '../view/pages/GoalDetail'
 import { Cards } from '../view/pages/Cards'
 import { CardDetail } from '../view/pages/CardDetail'
 import { Debts } from '../view/pages/Debts'
+import { DebtDetail } from '../view/pages/DebtDetail'
 
 export function Router () {
   return (
@@ -30,6 +31,7 @@ export function Router () {
             <Route path='/cartoes' element={<Cards />}/>
             <Route path='/cartoes/:cardId' element={<CardDetail />}/>
             <Route path='/dividas' element={<Debts />}/>
+            <Route path='/dividas/:debtId' element={<DebtDetail />}/>
           </Route>
         </Route>
       </Routes>
