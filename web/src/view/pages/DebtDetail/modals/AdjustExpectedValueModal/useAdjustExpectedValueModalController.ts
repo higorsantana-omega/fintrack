@@ -44,9 +44,13 @@ export function useAdjustExpectedValueModalController(
       toast.success('Valor ajustado!')
       onClose()
     } catch (error) {
-      const { status, message } = getApiErrorPayload(error)
+      if (getApiErrorPayload(error).status !== 409) {
+        toast.error('Erro ao ajustar o valor!')
+        return
+      }
 
-      toast.error(status === 409 && message ? message : 'Erro ao ajustar o valor!')
+      queryClient.invalidateQueries({ queryKey: ['debts'] })
+      toast.error('Esta parcela não está mais em aberto. A página foi atualizada.')
     }
   })
 

@@ -64,9 +64,14 @@ export function useEditDebtModalController(debt: DebtDetail, onClose: () => void
       toast.success('Dívida atualizada!')
       onClose()
     } catch (error) {
-      const { status, message } = getApiErrorPayload(error)
+      if (getApiErrorPayload(error).status !== 409) {
+        toast.error('Erro ao salvar a dívida!')
+        return
+      }
 
-      toast.error(status === 409 && message ? message : 'Erro ao salvar a dívida!')
+      // A payment registered elsewhere locks the plan fields (R12); reload the debt.
+      queryClient.invalidateQueries({ queryKey: ['debts'] })
+      toast.error('Esta dívida já tem pagamento registrado. A página foi atualizada.')
     }
   })
 
