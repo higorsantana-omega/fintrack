@@ -21,6 +21,10 @@ declare namespace Cypress {
     createCard(params: object): Chainable<string>
     createCardPurchase(cardId: string, params: object): Chainable<string>
     payInvoice(cardId: string, month: string, params: object): Chainable<string>
+    createDebt(params: object): Chainable<string>
+    payDebt(debtId: string, params: object): Chainable<string>
+    createBorrower(params: object): Chainable<string>
+    createBorrowerMovement(borrowerId: string, params: object): Chainable<string>
   }
 }
 
@@ -80,6 +84,34 @@ Cypress.Commands.add('createCardPurchase', (cardId, params) => {
 
 Cypress.Commands.add('payInvoice', (cardId, month, params) => {
   return cy.apiRequest('POST', `/cards/${cardId}/invoices/${month}/payments`, params).then(response => {
+    expect(response.status).to.eq(201)
+    return response.body.id
+  })
+})
+
+Cypress.Commands.add('createDebt', params => {
+  return cy.apiRequest('POST', '/debts', params).then(response => {
+    expect(response.status).to.eq(201)
+    return response.body.id
+  })
+})
+
+Cypress.Commands.add('payDebt', (debtId, params) => {
+  return cy.apiRequest('POST', `/debts/${debtId}/payments`, params).then(response => {
+    expect(response.status).to.eq(201)
+    return response.body.id
+  })
+})
+
+Cypress.Commands.add('createBorrower', params => {
+  return cy.apiRequest('POST', '/borrowers', params).then(response => {
+    expect(response.status).to.eq(201)
+    return response.body.id
+  })
+})
+
+Cypress.Commands.add('createBorrowerMovement', (borrowerId, params) => {
+  return cy.apiRequest('POST', `/borrowers/${borrowerId}/movements`, params).then(response => {
     expect(response.status).to.eq(201)
     return response.body.id
   })
