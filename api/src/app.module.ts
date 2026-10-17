@@ -9,6 +9,7 @@ import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { GoalsModule } from './modules/goals/goals.module';
 import { CardsModule } from './modules/cards/cards.module';
+import { DebtsModule } from './modules/debts/debts.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CardsModule } from './modules/cards/cards.module';
     TransactionsModule,
     GoalsModule,
     CardsModule,
+    DebtsModule,
   ],
   controllers: [],
   providers: [

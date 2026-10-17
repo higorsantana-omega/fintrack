@@ -8,7 +8,7 @@ import { currencyStringToNumber } from '../../../../../app/utils/currencyStringT
 import toast from 'react-hot-toast'
 import { useState } from 'react'
 import { invalidateMoneyQueries } from '../../../../../app/utils/invalidateMoneyQueries'
-import { ReopenedInvoice, getApiErrorPayload } from '../../../../../app/utils/getApiErrorPayload'
+import { ChangedBorrower, ReopenedDebt, ReopenedInvoice, getApiErrorPayload } from '../../../../../app/utils/getApiErrorPayload'
 
 const schema = z.object({
   initialBalance: z.union([
@@ -21,6 +21,12 @@ const schema = z.object({
 })
 
 type FormData = z.infer<typeof schema>
+
+export interface AccountDeletionImpact {
+  invoices: ReopenedInvoice[]
+  debts: ReopenedDebt[]
+  borrowers: ChangedBorrower[]
+}
 
 export function useEditAccountModalController() {
   const {
@@ -45,7 +51,7 @@ export function useEditAccountModalController() {
   })
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [reopenedInvoices, setReopenedInvoices] = useState<ReopenedInvoice[]>([])
+  const [deletionImpact, setDeletionImpact] = useState<AccountDeletionImpact | null>(null)
 
   const queryClient = useQueryClient()
   const { isLoading, mutateAsync: updateAccount } = useMutation(bankAccountsService.update)
@@ -77,13 +83,13 @@ export function useEditAccountModalController() {
     setIsDeleteModalOpen(false)
   }
 
-  function handleCloseReopenedInvoicesModal() {
-    setReopenedInvoices([])
+  function handleCloseDeletionImpactModal() {
+    setDeletionImpact(null)
   }
 
-  // Without `confirm` the API answers 409 with the card invoices that would have
-  // a balance again without this account's payments; the user confirms them in
-  // a second step.
+  // Without `confirm` the API answers 409 with the card invoices and debt
+  // installments that would reopen and the people balances that would change
+  // without this account's entries; the user confirms them in a second step.
   async function deleteAccount(confirm: boolean) {
     try {
       await removeAccount({ id: accountBeingEdited!.id, confirm })
@@ -92,18 +98,18 @@ export function useEditAccountModalController() {
       toast.success('Conta deletada com sucesso.')
       toggleOpenEditAccountModal()
     } catch (error) {
-      const { status, goals, invoices } = getApiErrorPayload(error)
+      const { status, goals, invoices = [], debts = [], borrowers = [] } = getApiErrorPayload(error)
 
       if (status === 409 && goals?.length) {
         toast.error(`Esta conta está ligada às metas: ${goals.join(', ')}.`)
         setIsDeleteModalOpen(false)
-        setReopenedInvoices([])
+        setDeletionImpact(null)
         return
       }
 
-      if (status === 409 && invoices?.length) {
+      if (status === 409 && invoices.length + debts.length + borrowers.length > 0) {
         setIsDeleteModalOpen(false)
-        setReopenedInvoices(invoices)
+        setDeletionImpact({ invoices, debts, borrowers })
         return
       }
 
@@ -119,5 +125,5 @@ export function useEditAccountModalController() {
     return deleteAccount(true)
   }
 
-  return { isLoadingDelete, handleDeleteAccount, handleConfirmDeleteAccount, reopenedInvoices, handleCloseReopenedInvoicesModal, isDeleteModalOpen, handleOpenDeleteModal, handleCloseDeleteModal, accountBeingEdited, isEditAccountModalOpen, toggleOpenEditAccountModal, register, errors, handleSubmit, control, isLoading }
+  return { isLoadingDelete, handleDeleteAccount, handleConfirmDeleteAccount, deletionImpact, handleCloseDeletionImpactModal, isDeleteModalOpen, handleOpenDeleteModal, handleCloseDeleteModal, accountBeingEdited, isEditAccountModalOpen, toggleOpenEditAccountModal, register, errors, handleSubmit, control, isLoading }
 }
