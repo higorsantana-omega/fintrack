@@ -16,7 +16,7 @@ import {
   toNoonUtc,
 } from 'src/shared/calendar';
 import { ValidateBankAccountOwnershipService } from '../bank-accounts/validate-bank-account-ownership.service';
-import { LOAN_CATEGORY_ICON } from '../categories/categories.constants';
+import { LOAN_CATEGORY_KEY } from '../categories/categories.constants';
 import { isWithinDateWindow } from '../cards/card-calculations';
 import { DATE_OUT_OF_RANGE_MESSAGE } from '../cards/cards.constants';
 import { ValidateBorrowerOwnershipService } from './validate-borrower-ownership.service';
@@ -142,9 +142,9 @@ export class BorrowersService {
 
     const isReturn = kind === BorrowerMovementKind.RETURN;
     const type = isReturn ? 'INCOME' : 'EXPENSE';
-    const category = await this.categoriesRepository.findByIcon(
+    const category = await this.categoriesRepository.findByKey(
       userId,
-      LOAN_CATEGORY_ICON,
+      LOAN_CATEGORY_KEY,
       type,
     );
     if (!category) {

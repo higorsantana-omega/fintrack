@@ -34,10 +34,10 @@ const bankAccounts = [
 ];
 
 const defaultCategories = [
-  { id: 'ana-goal-expense', userId: ANA, icon: 'goal', type: 'EXPENSE' },
-  { id: 'ana-goal-income', userId: ANA, icon: 'goal', type: 'INCOME' },
-  { id: 'bia-goal-expense', userId: BIA, icon: 'goal', type: 'EXPENSE' },
-  { id: 'bia-goal-income', userId: BIA, icon: 'goal', type: 'INCOME' },
+  { id: 'ana-goal-expense', userId: ANA, key: 'goals', type: 'EXPENSE' },
+  { id: 'ana-goal-income', userId: ANA, key: 'goals', type: 'INCOME' },
+  { id: 'bia-goal-expense', userId: BIA, key: 'goals', type: 'EXPENSE' },
+  { id: 'bia-goal-income', userId: BIA, key: 'goals', type: 'INCOME' },
 ];
 
 let goalCounter = 0;
@@ -154,11 +154,11 @@ describe('GoalsService', () => {
         {
           provide: CategoriesRepository,
           useValue: {
-            findByIcon: async (userId: string, icon: string, type: string) =>
+            findByKey: async (userId: string, key: string, type: string) =>
               categories.find(
                 (category) =>
                   category.userId === userId &&
-                  category.icon === icon &&
+                  category.key === key &&
                   category.type === type,
               ) ?? null,
           },

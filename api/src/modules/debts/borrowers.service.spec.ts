@@ -74,7 +74,7 @@ describe('BorrowersService', () => {
   let borrowers: BorrowerWithRelations[];
   let borrowersRepository: Record<string, jest.Mock>;
   let transactionsRepository: Record<string, jest.Mock>;
-  let categories: { userId: string; id: string; icon: string; type: string }[];
+  let categories: { userId: string; id: string; key: string; type: string }[];
   let deleteError: Error | null;
 
   const ownerOf = (borrowerId: string) =>
@@ -84,8 +84,8 @@ describe('BorrowersService', () => {
     borrowers = [];
     deleteError = null;
     categories = [
-      { userId: ANA, id: 'ana-loan-expense', icon: 'loan', type: 'EXPENSE' },
-      { userId: ANA, id: 'ana-loan-income', icon: 'loan', type: 'INCOME' },
+      { userId: ANA, id: 'ana-loan-expense', key: 'loans', type: 'EXPENSE' },
+      { userId: ANA, id: 'ana-loan-income', key: 'loans', type: 'INCOME' },
     ];
     // Stands in for the database: a transaction written with a borrowerId
     // shows up in that borrower's statement when it is read again.
@@ -143,11 +143,11 @@ describe('BorrowersService', () => {
         {
           provide: CategoriesRepository,
           useValue: {
-            findByIcon: async (userId: string, icon: string, type: string) =>
+            findByKey: async (userId: string, key: string, type: string) =>
               categories.find(
                 (category) =>
                   category.userId === userId &&
-                  category.icon === icon &&
+                  category.key === key &&
                   category.type === type,
               ) ?? null,
           },

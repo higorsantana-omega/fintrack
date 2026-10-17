@@ -103,7 +103,7 @@ describe('DebtsService', () => {
   let service: DebtsService;
   let debts: DebtWithRelations[];
   let debtsRepository: Record<string, jest.Mock>;
-  let categories: { userId: string; id: string; icon: string; type: string }[];
+  let categories: { userId: string; id: string; key: string; type: string }[];
   let deleteError: Error | null;
   let borrowers: {
     userId: string;
@@ -138,9 +138,9 @@ describe('DebtsService', () => {
     borrowers = [];
     deleteError = null;
     categories = [
-      { userId: ANA, id: 'ana-debt-income', icon: 'debt', type: 'INCOME' },
-      { userId: ANA, id: 'ana-debt-expense', icon: 'debt', type: 'EXPENSE' },
-      { userId: BIA, id: 'bia-debt-income', icon: 'debt', type: 'INCOME' },
+      { userId: ANA, id: 'ana-debt-income', key: 'debts', type: 'INCOME' },
+      { userId: ANA, id: 'ana-debt-expense', key: 'debts', type: 'EXPENSE' },
+      { userId: BIA, id: 'bia-debt-income', key: 'debts', type: 'INCOME' },
     ];
     // Stands in for the database: what the repository writes shows up when
     // the debt is read again.
@@ -252,11 +252,11 @@ describe('DebtsService', () => {
         {
           provide: CategoriesRepository,
           useValue: {
-            findByIcon: async (userId: string, icon: string, type: string) =>
+            findByKey: async (userId: string, key: string, type: string) =>
               categories.find(
                 (category) =>
                   category.userId === userId &&
-                  category.icon === icon &&
+                  category.key === key &&
                   category.type === type,
               ) ?? null,
           },

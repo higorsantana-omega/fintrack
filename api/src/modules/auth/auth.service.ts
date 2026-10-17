@@ -8,19 +8,7 @@ import { UsersRepository } from 'src/database/repositories/users.repositories';
 import { compare, hash } from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { SignupDto } from './dto/signup.dto';
-import {
-  GOAL_CATEGORY_ICON,
-  GOAL_CATEGORY_NAME,
-} from '../goals/goals.constants';
-import {
-  CARD_PAYMENT_CATEGORY_ICON,
-  CARD_PAYMENT_CATEGORY_NAME,
-  DEBT_CATEGORY_ICON,
-  DEBT_CATEGORY_NAME,
-  DEFAULT_EXPENSE_CATEGORIES,
-  LOAN_CATEGORY_ICON,
-  LOAN_CATEGORY_NAME,
-} from '../categories/categories.constants';
+import { buildDefaultCategories } from '../categories/categories.constants';
 
 @Injectable()
 export class AuthService {
@@ -58,52 +46,7 @@ export class AuthService {
         email: signupDto.email,
         password: hashedPassword,
         categories: {
-          createMany: {
-            data: [
-              { name: 'Salary', icon: 'salary', type: 'INCOME' },
-              { name: 'House', icon: 'home', type: 'EXPENSE' },
-              {
-                name: GOAL_CATEGORY_NAME,
-                icon: GOAL_CATEGORY_ICON,
-                type: 'EXPENSE',
-              },
-              {
-                name: GOAL_CATEGORY_NAME,
-                icon: GOAL_CATEGORY_ICON,
-                type: 'INCOME',
-              },
-              ...DEFAULT_EXPENSE_CATEGORIES.map(({ name, icon }) => ({
-                name,
-                icon,
-                type: 'EXPENSE' as const,
-              })),
-              {
-                name: CARD_PAYMENT_CATEGORY_NAME,
-                icon: CARD_PAYMENT_CATEGORY_ICON,
-                type: 'EXPENSE',
-              },
-              {
-                name: DEBT_CATEGORY_NAME,
-                icon: DEBT_CATEGORY_ICON,
-                type: 'EXPENSE',
-              },
-              {
-                name: DEBT_CATEGORY_NAME,
-                icon: DEBT_CATEGORY_ICON,
-                type: 'INCOME',
-              },
-              {
-                name: LOAN_CATEGORY_NAME,
-                icon: LOAN_CATEGORY_ICON,
-                type: 'EXPENSE',
-              },
-              {
-                name: LOAN_CATEGORY_NAME,
-                icon: LOAN_CATEGORY_ICON,
-                type: 'INCOME',
-              },
-            ],
-          },
+          createMany: { data: buildDefaultCategories() },
         },
       },
     });

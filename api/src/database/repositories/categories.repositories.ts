@@ -12,9 +12,9 @@ export class CategoriesRepository {
     });
   }
 
-  async findByIcon(userId: string, icon: string, type: TransactionType) {
+  async findByKey(userId: string, key: string, type: TransactionType) {
     return this.prismaService.category.findFirst({
-      where: { userId, icon, type },
+      where: { userId, key, type },
     });
   }
 

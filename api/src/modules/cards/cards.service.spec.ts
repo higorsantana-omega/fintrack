@@ -124,7 +124,7 @@ describe('CardsService', () => {
   let cards: CardWithRelations[];
   let creditCardsRepository: Record<string, jest.Mock>;
   let transactionsRepository: Record<string, jest.Mock>;
-  let categories: { userId: string; id: string; icon: string; type: string }[];
+  let categories: { userId: string; id: string; key: string; type: string }[];
 
   const ownerOf = (cardId: string) => cards.find((card) => card.id === cardId);
 
@@ -221,13 +221,13 @@ describe('CardsService', () => {
       {
         userId: ANA,
         id: 'ana-card-payment',
-        icon: 'credit-card',
+        key: 'card_payment',
         type: 'EXPENSE',
       },
       {
         userId: BIA,
         id: 'bia-card-payment',
-        icon: 'credit-card',
+        key: 'card_payment',
         type: 'EXPENSE',
       },
     ];
@@ -297,11 +297,11 @@ describe('CardsService', () => {
         {
           provide: CategoriesRepository,
           useValue: {
-            findByIcon: async (userId: string, icon: string, type: string) =>
+            findByKey: async (userId: string, key: string, type: string) =>
               categories.find(
                 (category) =>
                   category.userId === userId &&
-                  category.icon === icon &&
+                  category.key === key &&
                   category.type === type,
               ) ?? null,
           },
