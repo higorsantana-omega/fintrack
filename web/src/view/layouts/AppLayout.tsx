@@ -35,7 +35,8 @@ export function AppLayout() {
       label: 'Dívidas',
       end: false,
       dot: { id: 'debts-nav-dot', label: 'Dívidas em lembrete', isVisible: debtReminders.length > 0 }
-    }
+    },
+    { to: '/categorias', label: 'Categorias', end: false }
   ]
 
   return (

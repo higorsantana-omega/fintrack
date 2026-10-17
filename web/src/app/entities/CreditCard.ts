@@ -5,7 +5,9 @@ export type CardEntryKind = 'PURCHASE' | 'REFUND'
 export interface CardCategory {
   id: string
   name: string
-  icon: string
+  key: string | null
+  parentId: string | null
+  icon: string | null
 }
 
 export interface CardLimit {

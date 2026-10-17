@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import { RecurringCharge } from '../../../../../app/entities/CreditCard'
 import { useCategories } from '../../../../../app/hooks/useCategories'
 import { cardsService } from '../../../../../app/services/cardsService'
-import { getCardEntryCategories } from '../../../../../app/utils/cardEntryCategories'
+import { getCategoryOptions } from '../../../../../app/utils/categories'
 import { currencyStringToNumber } from '../../../../../app/utils/currencyStringToNumber'
 import { positiveCurrency } from '../../../../../app/utils/goalForm'
 
@@ -66,6 +66,6 @@ export function useEditRecurringChargeModalController(
     control,
     handleSubmit,
     isLoading,
-    categories: getCardEntryCategories(categories)
+    categories: getCategoryOptions(categories, 'EXPENSE', recurringCharge.category?.id)
   }
 }

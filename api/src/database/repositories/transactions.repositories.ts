@@ -23,6 +23,8 @@ export class TransactionsRepository {
           select: {
             id: true,
             name: true,
+            key: true,
+            parentId: true,
             icon: true,
           },
         },
