@@ -29,6 +29,7 @@ import { DeleteCategoryDto } from './dto/delete-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { ValidateCategoryOwnershipService } from './validate-category-ownership.service';
 
+export const EMPTY_NAME_MESSAGE = 'The category name cannot be blank.';
 export const NAME_TAKEN_MESSAGE = 'A category with this name already exists.';
 export const FIXED_CATEGORY_MESSAGE =
   'Default and system categories cannot be changed.';
@@ -167,7 +168,7 @@ export class CategoriesService {
   }
 
   async create(userId: string, createCategoryDto: CreateCategoryDto) {
-    const name = createCategoryDto.name.trim();
+    const name = this.getTrimmedName(createCategoryDto.name);
 
     if (!createCategoryDto.parentId) {
       await this.assertNameFree(userId, createCategoryDto.type, null, name);
@@ -205,7 +206,7 @@ export class CategoriesService {
   ) {
     const category = await this.getOwnCategory(userId, categoryId);
     const { icon, color } = updateCategoryDto;
-    const name = updateCategoryDto.name.trim();
+    const name = this.getTrimmedName(updateCategoryDto.name);
 
     if (category.parentId && (icon || color)) {
       throw new BadRequestException(SUBCATEGORY_STYLE_MESSAGE);
@@ -261,6 +262,13 @@ export class CategoriesService {
 
     await this.categoriesRepository.moveItemsAndDelete(doomed, destination.id);
     return null;
+  }
+
+  private getTrimmedName(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) throw new BadRequestException(EMPTY_NAME_MESSAGE);
+
+    return trimmed;
   }
 
   private isSystem(category: { key: string | null }) {

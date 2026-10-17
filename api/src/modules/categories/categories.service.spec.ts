@@ -269,6 +269,15 @@ describe('CategoriesService', () => {
       },
     );
 
+    it('returns 400 for a name that is blank after trimming', async () => {
+      await expect(
+        service.create(ANA, { name: '   ', parentId: 'shopping' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        service.update(ANA, 'racao', { name: '  ' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
     it("returns 404 for a parent that is another user's", async () => {
       await expect(
         service.create(ANA, { name: 'X', parentId: 'bia-group' }),

@@ -27,7 +27,7 @@ export function useCategoriesController() {
   const [collapsed, setCollapsed] = useState<string[]>([])
   const [modal, setModal] = useState<CategoriesModal | null>(null)
 
-  const { categories, isFetching: isFetchingCategories } = useCategories()
+  const { categories } = useCategories()
   const { summary, isInitialLoading: isLoadingSummary } = useCategoriesSummary(month, tab)
 
   const rows = useMemo<CategoryRow[]>(() => {
@@ -85,7 +85,6 @@ export function useCategoriesController() {
     tab,
     selectTab,
     categories,
-    isFetchingCategories,
     summary,
     isLoadingSummary,
     rows,

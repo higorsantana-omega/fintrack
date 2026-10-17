@@ -1,5 +1,11 @@
 import { getMonthKey, toCents } from 'src/shared/calendar';
 import {
+  CARD_PAYMENT_CATEGORY_KEY,
+  DEBT_CATEGORY_KEY,
+  GOAL_CATEGORY_KEY,
+  LOAN_CATEGORY_KEY,
+} from './categories.constants';
+import {
   CardSnapshot,
   RecurringChargeRule,
   getForecasts,
@@ -31,7 +37,11 @@ export type AccountTransactionLinks = {
 
 // Account transactions (KTD5) --------------------------------------------------
 
-const SYSTEM_KEYS_OUT_OF_TOTALS = ['card_payment', 'goals', 'loans'];
+const SYSTEM_KEYS_OUT_OF_TOTALS = [
+  CARD_PAYMENT_CATEGORY_KEY,
+  GOAL_CATEGORY_KEY,
+  LOAN_CATEGORY_KEY,
+];
 
 /**
  * Whether an account transaction counts in the tab: the link decides first
@@ -51,7 +61,7 @@ export function countsInTab(
   if (categoryKey && SYSTEM_KEYS_OUT_OF_TOTALS.includes(categoryKey))
     return false;
 
-  return !(isIncome && categoryKey === 'debts');
+  return !(isIncome && categoryKey === DEBT_CATEGORY_KEY);
 }
 
 // Card items (KTD6) ------------------------------------------------------------
