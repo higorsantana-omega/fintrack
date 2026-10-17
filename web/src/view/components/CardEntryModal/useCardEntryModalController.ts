@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import { CardEntry, CreditCard } from '../../../app/entities/CreditCard'
 import { useCategories } from '../../../app/hooks/useCategories'
 import { cardsService } from '../../../app/services/cardsService'
-import { getCardEntryCategories } from '../../../app/utils/cardEntryCategories'
+import { getCategoryOptions } from '../../../app/utils/categories'
 import { currencyStringToNumber } from '../../../app/utils/currencyStringToNumber'
 import { formatDate } from '../../../app/utils/formatDate'
 import { calendarDateToLocal, positiveCurrency, toCalendarNoonIso } from '../../../app/utils/goalForm'
@@ -242,7 +242,7 @@ export function useCardEntryModalController({ cards, cardId, entry, onClose }: C
     anchorInvoiceMonth: anchorInvoiceMonth || selectedCard?.openInvoiceMonth,
     selectAnchor: (month: string) => setValue('anchorInvoiceMonth', month),
     selectedCard,
-    categories: getCardEntryCategories(categories),
+    categories: getCategoryOptions(categories, 'EXPENSE', entry?.category?.id),
     limitWarning,
     isDeleteModalOpen,
     openDeleteModal: () => setIsDeleteModalOpen(true),

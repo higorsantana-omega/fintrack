@@ -23,7 +23,7 @@ import {
   toNoonUtc,
 } from 'src/shared/calendar';
 import { ValidateBankAccountOwnershipService } from '../bank-accounts/validate-bank-account-ownership.service';
-import { CARD_PAYMENT_CATEGORY_ICON } from '../categories/categories.constants';
+import { CARD_PAYMENT_CATEGORY_KEY } from '../categories/categories.constants';
 import { ValidateCardOwnershipService } from './validate-card-ownership.service';
 import { CreateCardDto } from './dto/create-card.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
@@ -273,9 +273,9 @@ export class CardsService {
       throw new ConflictException(NO_PAYMENT_MESSAGE);
     }
 
-    const category = await this.categoriesRepository.findByIcon(
+    const category = await this.categoriesRepository.findByKey(
       userId,
-      CARD_PAYMENT_CATEGORY_ICON,
+      CARD_PAYMENT_CATEGORY_KEY,
       'EXPENSE',
     );
     if (!category) {

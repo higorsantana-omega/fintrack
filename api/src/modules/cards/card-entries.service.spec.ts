@@ -41,11 +41,44 @@ const categories = [
     type: 'EXPENSE',
   },
   { id: 'salary', userId: ANA, name: 'Salary', icon: 'salary', type: 'INCOME' },
-  { id: 'goal', userId: ANA, name: 'Metas', icon: 'goal', type: 'EXPENSE' },
+  {
+    id: 'goal',
+    userId: ANA,
+    name: 'Goals',
+    key: 'goals',
+    icon: 'target',
+    type: 'EXPENSE',
+  },
+  {
+    id: 'debts',
+    userId: ANA,
+    name: 'Debts',
+    key: 'debts',
+    icon: 'landmark',
+    type: 'EXPENSE',
+  },
+  {
+    id: 'loans',
+    userId: ANA,
+    name: 'Loans',
+    key: 'loans',
+    icon: 'hand-coins',
+    type: 'EXPENSE',
+  },
+  // A user's own group may reuse a system icon; only the key marks a system category.
+  {
+    id: 'own-card-icon',
+    userId: ANA,
+    name: 'Mine',
+    key: null,
+    icon: 'credit-card',
+    type: 'EXPENSE',
+  },
   {
     id: 'card-payment',
     userId: ANA,
-    name: 'Fatura de cartão',
+    name: 'Card payment',
+    key: 'card_payment',
     icon: 'credit-card',
     type: 'EXPENSE',
   },
@@ -61,7 +94,13 @@ const categories = [
 const categoryView = (categoryId: string | null) => {
   const category = categories.find(({ id }) => id === categoryId);
   return category
-    ? { id: category.id, name: category.name, icon: category.icon }
+    ? {
+        id: category.id,
+        name: category.name,
+        key: category.key ?? null,
+        parentId: null,
+        icon: category.icon,
+      }
     : null;
 };
 
@@ -549,7 +588,7 @@ describe('CardEntriesService', () => {
       expect(getLimit(card).used).toBe(0);
     });
 
-    it('returns 404 for another user\'s category, and 400 for an income, "Metas" or "Fatura de cartão" category', async () => {
+    it("returns 404 for another user's category, and 400 for an income or a system category", async () => {
       const card = makeCard();
       cards.push(card);
 
@@ -560,12 +599,31 @@ describe('CardEntriesService', () => {
           single({ categoryId: 'bia-food' }),
         ),
       ).rejects.toBeInstanceOf(NotFoundException);
-      for (const categoryId of ['salary', 'goal', 'card-payment']) {
+      for (const categoryId of [
+        'salary',
+        'goal',
+        'card-payment',
+        'debts',
+        'loans',
+      ]) {
         await expect(
           service.createPurchase(ANA, card.id, single({ categoryId })),
         ).rejects.toBeInstanceOf(BadRequestException);
       }
       expect(card.purchases).toEqual([]);
+    });
+
+    it('accepts a purchase in a user category that only shares a system icon', async () => {
+      const card = makeCard();
+      cards.push(card);
+
+      await service.createPurchase(
+        ANA,
+        card.id,
+        single({ categoryId: 'own-card-icon' }),
+      );
+
+      expect(card.purchases).toHaveLength(1);
     });
 
     it('accepts a refund without a category in the invoice of its date', async () => {

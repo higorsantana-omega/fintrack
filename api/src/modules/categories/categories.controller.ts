@@ -1,46 +1,67 @@
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
-  Param,
+  Controller,
   Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  Query,
 } from '@nestjs/common';
+import { ParseMonthPipe } from 'src/pipes/ParseMonthPipe';
+import ActiveUserId from 'src/decorators/activeUserId.decorator';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { DeleteCategoryDto } from './dto/delete-category.dto';
+import { SummaryQueryDto } from './dto/summary-query.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
-import ActiveUserId from 'src/decorators/activeUserId.decorator';
 
 @Controller('categories')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
-
-  @Post()
-  create(@Body() createCategoryDto: CreateCategoryDto) {
-    return this.categoriesService.create(createCategoryDto);
-  }
 
   @Get()
   findAll(@ActiveUserId() userId: string) {
     return this.categoriesService.findAllByUserId(userId);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.categoriesService.findOne(+id);
+  // Declared before `:categoryId`, so "summary" is never read as an id.
+  @Get('summary/:month')
+  getSummary(
+    @ActiveUserId() userId: string,
+    @Param('month', ParseMonthPipe) month: string,
+    @Query() { type }: SummaryQueryDto,
+  ) {
+    return this.categoriesService.getSummary(userId, month, type);
   }
 
-  @Patch(':id')
+  @Post()
+  create(
+    @ActiveUserId() userId: string,
+    @Body() createCategoryDto: CreateCategoryDto,
+  ) {
+    return this.categoriesService.create(userId, createCategoryDto);
+  }
+
+  @Put(':categoryId')
   update(
-    @Param('id') id: string,
+    @ActiveUserId() userId: string,
+    @Param('categoryId', ParseUUIDPipe) categoryId: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
   ) {
-    return this.categoriesService.update(+id, updateCategoryDto);
+    return this.categoriesService.update(userId, categoryId, updateCategoryDto);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.categoriesService.remove(+id);
+  @Delete(':categoryId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(
+    @ActiveUserId() userId: string,
+    @Param('categoryId', ParseUUIDPipe) categoryId: string,
+    @Query() deleteCategoryDto: DeleteCategoryDto,
+  ) {
+    return this.categoriesService.remove(userId, categoryId, deleteCategoryDto);
   }
 }

@@ -12,6 +12,7 @@ import { CardDetail } from '../view/pages/CardDetail'
 import { Debts } from '../view/pages/Debts'
 import { DebtDetail } from '../view/pages/DebtDetail'
 import { BorrowerDetail } from '../view/pages/BorrowerDetail'
+import { Categories } from '../view/pages/Categories'
 
 export function Router () {
   return (
@@ -34,6 +35,7 @@ export function Router () {
             <Route path='/dividas' element={<Debts />}/>
             <Route path='/dividas/:debtId' element={<DebtDetail />}/>
             <Route path='/dividas/pessoas/:borrowerId' element={<BorrowerDetail />}/>
+            <Route path='/categorias' element={<Categories />}/>
           </Route>
         </Route>
       </Routes>

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { TransactionType } from '@prisma/client';
+import { Prisma, TransactionType } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
@@ -12,9 +12,9 @@ export class CategoriesRepository {
     });
   }
 
-  async findByIcon(userId: string, icon: string, type: TransactionType) {
+  async findByKey(userId: string, key: string, type: TransactionType) {
     return this.prismaService.category.findFirst({
-      where: { userId, icon, type },
+      where: { userId, key, type },
     });
   }
 
@@ -22,5 +22,46 @@ export class CategoriesRepository {
     return this.prismaService.category.findFirst({
       where: { userId, id: categoryId },
     });
+  }
+
+  /** The groups of a type when `parentId` is null, else the group's subcategories. */
+  async findSiblings(
+    userId: string,
+    type: TransactionType,
+    parentId: string | null,
+  ) {
+    return this.prismaService.category.findMany({
+      where: { userId, type, parentId },
+    });
+  }
+
+  async create(data: Prisma.CategoryUncheckedCreateInput) {
+    return this.prismaService.category.create({ data });
+  }
+
+  async update(categoryId: string, data: Prisma.CategoryUncheckedUpdateInput) {
+    return this.prismaService.category.update({
+      where: { id: categoryId },
+      data,
+    });
+  }
+
+  /**
+   * Moves every item of the categories to `destinationId` and deletes them,
+   * all or nothing. Archived cards' items are reached too, since nothing here
+   * goes through the cards service.
+   */
+  async moveItemsAndDelete(categoryIds: string[], destinationId: string) {
+    const where = { categoryId: { in: categoryIds } };
+    const data = { categoryId: destinationId };
+
+    await this.prismaService.$transaction([
+      this.prismaService.transaction.updateMany({ where, data }),
+      this.prismaService.cardPurchase.updateMany({ where, data }),
+      this.prismaService.recurringCharge.updateMany({ where, data }),
+      this.prismaService.category.deleteMany({
+        where: { id: { in: categoryIds } },
+      }),
+    ]);
   }
 }

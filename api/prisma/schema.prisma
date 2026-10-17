@@ -57,15 +57,24 @@ enum TransactionType {
 model Category {
   id               String            @id @default(uuid()) @db.Uuid
   userId           String            @db.Uuid
+  parentId         String?           @db.Uuid
   name             String
-  icon             String
+  // English snake_case key of the default and system categories; null on the user's own.
+  key              String?
+  icon             String?
+  // Hex from the web palette, only on groups.
+  color            String?
   type             TransactionType
   transactions     Transaction[]
   cardPurchases    CardPurchase[]
   recurringCharges RecurringCharge[]
+  subcategories    Category[]        @relation("CategoryTree")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent Category? @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, type, key])
+  @@index([parentId])
   @@map("category")
 }
 
