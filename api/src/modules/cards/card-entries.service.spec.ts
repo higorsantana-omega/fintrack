@@ -94,7 +94,13 @@ const categories = [
 const categoryView = (categoryId: string | null) => {
   const category = categories.find(({ id }) => id === categoryId);
   return category
-    ? { id: category.id, name: category.name, icon: category.icon }
+    ? {
+        id: category.id,
+        name: category.name,
+        key: category.key ?? null,
+        parentId: null,
+        icon: category.icon,
+      }
     : null;
 };
 

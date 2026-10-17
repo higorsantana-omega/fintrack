@@ -1,20 +1,32 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
+import { CategoriesRepository } from 'src/database/repositories/categories.repositories';
+import { CardPurchasesRepository } from 'src/database/repositories/card-purchases.repositories';
+import { CreditCardsRepository } from 'src/database/repositories/credit-cards.repositories';
+import { TransactionsRepository } from 'src/database/repositories/transactions.repositories';
 import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
+import { ValidateCategoryOwnershipService } from './validate-category-ownership.service';
 
 describe('CategoriesController', () => {
-  let controller: CategoriesController;
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+  it("resolves its dependencies and lists the user's categories", async () => {
+    const categories = [{ id: 'food', key: 'food', parentId: null }];
+    const module = await Test.createTestingModule({
       controllers: [CategoriesController],
-      providers: [CategoriesService],
+      providers: [
+        CategoriesService,
+        ValidateCategoryOwnershipService,
+        {
+          provide: CategoriesRepository,
+          useValue: { findMany: async () => categories },
+        },
+        { provide: TransactionsRepository, useValue: {} },
+        { provide: CreditCardsRepository, useValue: {} },
+        { provide: CardPurchasesRepository, useValue: {} },
+      ],
     }).compile();
 
-    controller = module.get<CategoriesController>(CategoriesController);
-  });
+    const controller = module.get(CategoriesController);
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
+    await expect(controller.findAll('ana')).resolves.toEqual(categories);
   });
 });

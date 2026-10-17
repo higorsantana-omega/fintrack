@@ -198,7 +198,10 @@ export function getCategoryMonthTotals(
   const totalOf = (id: string) =>
     tree
       .filter(({ parentId }) => parentId === id)
-      .reduce((sum, { id: childId }) => sum + direct.get(childId), direct.get(id));
+      .reduce(
+        (sum, { id: childId }) => sum + direct.get(childId),
+        direct.get(id),
+      );
 
   const rows = tree.map(({ id, parentId }) => ({
     id,

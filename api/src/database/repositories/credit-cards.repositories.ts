@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
-const categorySelect = { select: { id: true, name: true, icon: true } };
+const categorySelect = {
+  select: { id: true, name: true, key: true, parentId: true, icon: true },
+};
 
 const cardInclude = Prisma.validator<Prisma.CreditCardInclude>()({
   cycles: {

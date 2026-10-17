@@ -54,10 +54,7 @@ describe('countsInTab (KTD5)', () => {
     expect(countsInTab(payment, 'EXPENSE')).toBe(true);
     expect(countsInTab({ ...payment, type: 'INCOME' }, 'INCOME')).toBe(false);
     expect(
-      countsInTab(
-        { ...base, type: 'INCOME', categoryKey: 'debts' },
-        'INCOME',
-      ),
+      countsInTab({ ...base, type: 'INCOME', categoryKey: 'debts' }, 'INCOME'),
     ).toBe(false);
   });
 });

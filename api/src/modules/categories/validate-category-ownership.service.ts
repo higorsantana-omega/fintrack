@@ -6,11 +6,13 @@ export class ValidateCategoryOwnershipService {
   constructor(private readonly categoriesRepository: CategoriesRepository) {}
 
   async validate(userId: string, categoryId: string) {
-    const isOwner = await this.categoriesRepository.findFirst(
+    const category = await this.categoriesRepository.findFirst(
       userId,
       categoryId,
     );
 
-    if (!isOwner) throw new NotFoundException('Category not found.');
+    if (!category) throw new NotFoundException('Category not found.');
+
+    return category;
   }
 }
