@@ -61,10 +61,10 @@ function purchase(description: string, value: number, date: Date, extra: object 
   return { kind: 'PURCHASE', description, value, date: date.toISOString(), ...extra }
 }
 
-function withCategory(icon: string, build: (categoryId: string) => void) {
+function withCategory(key: string, build: (categoryId: string) => void) {
   cy.apiRequest('GET', '/categories').then(response => {
-    const categories = response.body as unknown as { id: string, icon: string, type: string }[]
-    build(categories.find(category => category.icon === icon && category.type === 'EXPENSE')!.id)
+    const categories = response.body as unknown as { id: string, key: string | null, type: string }[]
+    build(categories.find(category => category.key === key && category.type === 'EXPENSE')!.id)
   })
 }
 
@@ -145,7 +145,7 @@ describe('Cartões', () => {
     cy.get('#entryValue').clear().type('100')
     cy.get('#entryDescription').type('Mercado')
     pickLastMonthDay('entryDate', 15)
-    selectOption('entryCategoryId', 'Mercado')
+    selectOption('entryCategoryId', 'Supermercado')
     cy.get('#entrySubmit').click()
     cy.contains('Lançamento registrado!')
 
@@ -224,7 +224,7 @@ describe('Cartões', () => {
   it('charts 13 months and marks future invoices (R41)', () => {
     signUp()
     cy.createCard(monthlyCard('Nubank')).then(cardId => {
-      withCategory('travel', categoryId => {
+      withCategory('tourism', categoryId => {
         cy.createCardPurchase(cardId, purchase('Viagem', 600, lastMonth15th, { categoryId, installmentsCount: 6 }))
       })
     })
@@ -278,7 +278,7 @@ describe('Cartões', () => {
     signUp()
     cy.createBankAccount('Itaú').then(accountId => {
       cy.createCard(monthlyCard('Nubank')).then(cardId => {
-        withCategory('grocery', categoryId => {
+        withCategory('supermarket', categoryId => {
           cy.createCardPurchase(cardId, purchase('Feira', 100, lastMonth15th, { categoryId }))
         })
         cy.payInvoice(cardId, currentMonthKey, { bankAccountId: accountId, value: 100, date: today.toISOString() })
@@ -286,7 +286,7 @@ describe('Cartões', () => {
         cy.visit('http://localhost:5173/')
         cy.contains('[role="button"]', paymentName('Nubank')).click()
         cy.get('[role="dialog"] button[role="combobox"]').first().click()
-        cy.get('[role="option"]').contains('Outros').click()
+        cy.contains('[role="option"]', /^Outros$/).click()
         cy.get('button').contains('Salvar').click()
         cy.contains('Despesa editada com sucesso!')
 
@@ -302,7 +302,7 @@ describe('Cartões', () => {
     signUp()
     cy.createBankAccount('Itaú').then(accountId => {
       cy.createCard(monthlyCard('Nubank')).then(cardId => {
-        withCategory('grocery', categoryId => {
+        withCategory('supermarket', categoryId => {
           cy.createCardPurchase(cardId, purchase('Feira', 100, lastMonth15th, { categoryId }))
         })
         cy.payInvoice(cardId, currentMonthKey, { bankAccountId: accountId, value: 100, date: today.toISOString() })
@@ -324,7 +324,7 @@ describe('Cartões', () => {
   it('takes a cancelled recurring charge out of the active list (R22, R46)', () => {
     signUp()
     cy.createCard(monthlyCard('Nubank')).then(cardId => {
-      withCategory('fun', categoryId => {
+      withCategory('leisure', categoryId => {
         cy.apiRequest('POST', `/cards/${cardId}/recurring-charges`, {
           description: 'Netflix',
           value: 55,
@@ -345,7 +345,7 @@ describe('Cartões', () => {
     signUp()
     cy.createBankAccount('Itaú').then(accountId => {
       cy.createCard(monthlyCard('Nubank')).then(cardId => {
-        withCategory('fun', categoryId => {
+        withCategory('leisure', categoryId => {
           cy.createCardPurchase(cardId, purchase('TV', 900, today, { categoryId, installmentsCount: 3 }))
         })
         openCard(cardId)
@@ -355,7 +355,7 @@ describe('Cartões', () => {
       })
 
       cy.createCard(monthlyCard('Antigo')).then(cardId => {
-        withCategory('fun', categoryId => {
+        withCategory('leisure', categoryId => {
           cy.createCardPurchase(cardId, purchase('Cinema', 50, lastMonth15th, { categoryId }))
         })
         cy.payInvoice(cardId, currentMonthKey, { bankAccountId: accountId, value: 50, date: today.toISOString() })
