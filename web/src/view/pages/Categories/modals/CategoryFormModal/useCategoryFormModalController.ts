@@ -49,20 +49,19 @@ export function useCategoryFormModalController(target: CategoryFormTarget, categ
 
   const queryClient = useQueryClient()
   const { isLoading, mutateAsync } = useMutation(async (data: CategoryFormData) => {
-    if (editing) {
-      return categoriesService.update({ id: editing.id, ...data })
+    switch (target.kind) {
+      case 'edit':
+        return categoriesService.update({ id: target.category.id, ...data })
+      case 'createSubcategory':
+        return categoriesService.create({ name: data.name, parentId: target.parent.id })
+      case 'createGroup':
+        return categoriesService.create({
+          name: data.name,
+          type: target.type,
+          icon: data.icon as string,
+          color: data.color as string
+        })
     }
-
-    if (target.kind === 'createSubcategory') {
-      return categoriesService.create({ name: data.name, parentId: target.parent.id })
-    }
-
-    return categoriesService.create({
-      name: data.name,
-      type: (target as { type: Category['type'] }).type,
-      icon: data.icon as string,
-      color: data.color as string
-    })
   })
 
   const handleSubmit = hookFormSubmit(async data => {

@@ -3,7 +3,6 @@ import { Swiper, SwiperSlide } from 'swiper/react'
 import { MONTHS } from '../../../../../app/config/constants'
 import { TransactionsSliderOption } from './TransactionsSliderOption'
 import { TransactionsSliderNavigation } from './TransactionsSliderNavigation'
-import { useCategories } from '../../../../../app/hooks/useCategories'
 import { CategoryIcon } from '../../../../components/icons/categories/CategoryIcon'
 import { useTransactionsController } from './useTransactionsController'
 import { cn } from '../../../../../app/utils/cn'
@@ -17,7 +16,6 @@ import { EditTransactionModal } from '../../modals/EditTransactionModal'
 
 export function Transactions() {
   const { handleCloseTransactionModal, handleOpenTransactionModal, isEditModalOpen, transactionBeingEdited, handleApplyFilters, filters, handleChangeFilters, areValuesVisible, isLoading, isInitialLoading, transactions, handleCloseFiltersModal, handleOpenFiltersModal, isFiltersModalOpen } = useTransactionsController()
-  const { categories } = useCategories()
 
   return (
     <div className='bg-gray-100 rounded-2xl w-full h-full md:p-10 px-4 py-8 flex flex-col'>
@@ -102,7 +100,6 @@ export function Transactions() {
                       <CategoryIcon
                         type={transaction.type === 'EXPENSE' ? 'expense' : 'income'}
                         category={transaction.category}
-                        categories={categories}
                       />
 
                       <div>

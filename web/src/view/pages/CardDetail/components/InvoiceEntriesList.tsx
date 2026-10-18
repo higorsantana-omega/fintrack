@@ -2,7 +2,6 @@ import { CardEntry } from '../../../../app/entities/CreditCard'
 import { cn } from '../../../../app/utils/cn'
 import { formatCurrency } from '../../../../app/utils/formatCurrency'
 import { formatDate } from '../../../../app/utils/formatDate'
-import { useCategories } from '../../../../app/hooks/useCategories'
 import { getCategoryName } from '../../../../app/utils/categories'
 import { CategoryIcon } from '../../../components/icons/categories/CategoryIcon'
 
@@ -21,7 +20,6 @@ function getMarks(entry: CardEntry) {
 }
 
 export function InvoiceEntriesList({ entries, onSelect }: InvoiceEntriesListProps) {
-  const { categories } = useCategories()
   if (entries.length === 0) {
     return <p className='text-gray-600 text-sm py-6 text-center'>Nenhum lançamento nesta fatura.</p>
   }
@@ -39,7 +37,7 @@ export function InvoiceEntriesList({ entries, onSelect }: InvoiceEntriesListProp
             )}
           >
             <div className='flex items-center gap-3 min-w-0'>
-              <CategoryIcon type='expense' category={entry.category} categories={categories} />
+              <CategoryIcon type='expense' category={entry.category} />
               <div className='min-w-0'>
                 <strong className='font-bold tracking-[-0.5px] block text-gray-800 truncate'>{entry.description}</strong>
                 <span className='text-sm text-gray-600'>

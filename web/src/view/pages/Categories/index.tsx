@@ -84,7 +84,6 @@ export function Categories() {
             <div className='space-y-4 min-w-0'>
               <CategoryTree
                 tab={tab}
-                categories={categories}
                 rows={rows}
                 collapsed={collapsed}
                 noCategoryTotal={hasNoCategoryItems ? summary.noCategory.total : null}

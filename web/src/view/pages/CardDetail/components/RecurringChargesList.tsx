@@ -1,6 +1,5 @@
 import { RecurringCharge } from '../../../../app/entities/CreditCard'
 import { formatCurrency } from '../../../../app/utils/formatCurrency'
-import { useCategories } from '../../../../app/hooks/useCategories'
 import { getCategoryName } from '../../../../app/utils/categories'
 import { CategoryIcon } from '../../../components/icons/categories/CategoryIcon'
 
@@ -12,7 +11,6 @@ interface RecurringChargesListProps {
 }
 
 export function RecurringChargesList({ recurringCharges, canEdit, onEdit, onCancel }: RecurringChargesListProps) {
-  const { categories } = useCategories()
   return (
     <div id='recurring-charges' className='bg-gray-100 rounded-2xl p-6 md:p-8 flex flex-col gap-4'>
       <strong className='text-gray-800 tracking-[-1px] text-lg'>Recorrentes</strong>
@@ -26,7 +24,7 @@ export function RecurringChargesList({ recurringCharges, canEdit, onEdit, onCanc
           {recurringCharges.map(recurringCharge => (
             <li key={recurringCharge.id} className='recurring-charge bg-white p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4'>
               <div className='flex items-center gap-3'>
-                <CategoryIcon type='expense' category={recurringCharge.category} categories={categories} />
+                <CategoryIcon type='expense' category={recurringCharge.category} />
                 <div>
                   <strong className='font-bold tracking-[-0.5px] block text-gray-800'>{recurringCharge.description}</strong>
                   <span className='text-sm text-gray-600'>

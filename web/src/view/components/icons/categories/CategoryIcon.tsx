@@ -1,3 +1,4 @@
+import { useCategories } from '../../../../app/hooks/useCategories'
 import { Category } from '../../../../app/services/categoriesService'
 import { resolveCategoryStyle } from '../../../../app/utils/categories'
 import { colors } from '../../../constants/ColorsConstants'
@@ -7,10 +8,10 @@ interface CategoryIconProps {
   type: 'income' | 'expense';
   /** The color is optional: embedded categories do not carry it, so it comes from the list. */
   category?: (Pick<Category, 'id' | 'icon' | 'parentId'> & { color?: string | null }) | null;
-  categories?: Category[];
 }
 
-export function CategoryIcon({ type, category, categories = [] }: CategoryIconProps) {
+export function CategoryIcon({ type, category }: CategoryIconProps) {
+  const { categories } = useCategories()
   const full = category && (categories.find(({ id }) => id === category.id) ?? { color: null, ...category } as Category)
   const style = full ? resolveCategoryStyle(full, categories) : null
   const Icon = style?.icon ? iconsMap[style.icon] : undefined

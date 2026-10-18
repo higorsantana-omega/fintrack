@@ -10,7 +10,6 @@ import { CategoryRow, CategoriesTab } from '../useCategoriesController'
 
 interface CategoryTreeProps {
   tab: CategoriesTab
-  categories: Category[]
   rows: CategoryRow[]
   collapsed: string[]
   noCategoryTotal: number | null
@@ -62,7 +61,6 @@ function RowMenu({ category, canCreateSubcategory, onCreateSubcategory, onEdit, 
 
 export function CategoryTree({
   tab,
-  categories,
   rows,
   collapsed,
   noCategoryTotal,
@@ -101,7 +99,7 @@ export function CategoryTree({
                 onClick={() => onOpenItems(category.id)}
                 className='category-open flex-1 min-w-0 flex items-center gap-3 text-left rounded-xl py-1 hover:bg-gray-50 transition-colors'
               >
-                <CategoryIcon type={iconType} category={category} categories={categories} />
+                <CategoryIcon type={iconType} category={category} />
                 <div className='flex-1 min-w-0'>
                   <strong className='category-name block truncate text-gray-800 tracking-[-0.5px]'>{name}</strong>
                   <span className='text-xs text-gray-600'>
@@ -125,7 +123,7 @@ export function CategoryTree({
                       onClick={() => onOpenItems(sub.category.id)}
                       className='category-open flex-1 min-w-0 flex items-center gap-3 text-left rounded-xl py-1 hover:bg-gray-50 transition-colors'
                     >
-                      <CategoryIcon type={iconType} category={sub.category} categories={categories} />
+                      <CategoryIcon type={iconType} category={sub.category} />
                       <strong className='category-name flex-1 min-w-0 truncate text-sm font-medium text-gray-800 tracking-[-0.5px]'>
                         {getCategoryName(sub.category)}
                       </strong>
