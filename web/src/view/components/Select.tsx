@@ -11,6 +11,7 @@ interface SelectProps {
   options: {
     value: string
     label: string
+    indent?: boolean
   }[]
   onChange?(value: string): void
   value?: string
@@ -62,7 +63,10 @@ export function Select({ id, className, error, placeholder, options, onChange, v
                 {options.map(op => (
                   <RdxSelect.Item
                     key={op.value}
-                    className='p-2 transition-colors text-gray-800 rounded-lg text-sm data-[state=checked]:font-bold data-[highlighted]:bg-gray-50 outline-none'
+                    className={cn(
+                      'p-2 transition-colors text-gray-800 rounded-lg text-sm data-[state=checked]:font-bold data-[highlighted]:bg-gray-50 outline-none',
+                      op.indent && 'pl-6'
+                    )}
                     value={op.value}
                   >
                     <RdxSelect.ItemText>{op.label}</RdxSelect.ItemText>

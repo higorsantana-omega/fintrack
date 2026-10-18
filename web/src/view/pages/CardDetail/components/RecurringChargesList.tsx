@@ -1,5 +1,6 @@
 import { RecurringCharge } from '../../../../app/entities/CreditCard'
 import { formatCurrency } from '../../../../app/utils/formatCurrency'
+import { getCategoryName } from '../../../../app/utils/categories'
 import { CategoryIcon } from '../../../components/icons/categories/CategoryIcon'
 
 interface RecurringChargesListProps {
@@ -23,12 +24,12 @@ export function RecurringChargesList({ recurringCharges, canEdit, onEdit, onCanc
           {recurringCharges.map(recurringCharge => (
             <li key={recurringCharge.id} className='recurring-charge bg-white p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4'>
               <div className='flex items-center gap-3'>
-                <CategoryIcon type='expense' category={recurringCharge.category?.icon} />
+                <CategoryIcon type='expense' category={recurringCharge.category} />
                 <div>
                   <strong className='font-bold tracking-[-0.5px] block text-gray-800'>{recurringCharge.description}</strong>
                   <span className='text-sm text-gray-600'>
                     {formatCurrency(recurringCharge.value)} todo dia {new Date(recurringCharge.firstChargeDate).getUTCDate()}
-                    {recurringCharge.category && ` · ${recurringCharge.category.name}`}
+                    {recurringCharge.category && ` · ${getCategoryName(recurringCharge.category)}`}
                   </span>
                 </div>
               </div>

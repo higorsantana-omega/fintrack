@@ -23,7 +23,7 @@ import {
   toNoonUtc,
 } from 'src/shared/calendar';
 import { ValidateBankAccountOwnershipService } from '../bank-accounts/validate-bank-account-ownership.service';
-import { DEBT_CATEGORY_ICON } from '../categories/categories.constants';
+import { DEBT_CATEGORY_KEY } from '../categories/categories.constants';
 import { isWithinDateWindow } from '../cards/card-calculations';
 import { DATE_OUT_OF_RANGE_MESSAGE } from '../cards/cards.constants';
 import { ValidateDebtOwnershipService } from './validate-debt-ownership.service';
@@ -216,9 +216,9 @@ export class DebtsService {
       throw new BadRequestException(DATE_OUT_OF_RANGE_MESSAGE);
     }
 
-    const category = await this.categoriesRepository.findByIcon(
+    const category = await this.categoriesRepository.findByKey(
       userId,
-      DEBT_CATEGORY_ICON,
+      DEBT_CATEGORY_KEY,
       'EXPENSE',
     );
     if (!category) {
@@ -371,9 +371,9 @@ export class DebtsService {
       userId,
       createDebtDto.entryBankAccountId,
     );
-    const category = await this.categoriesRepository.findByIcon(
+    const category = await this.categoriesRepository.findByKey(
       userId,
-      DEBT_CATEGORY_ICON,
+      DEBT_CATEGORY_KEY,
       'INCOME',
     );
     if (!category) {

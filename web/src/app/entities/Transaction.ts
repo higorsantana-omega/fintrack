@@ -14,6 +14,8 @@ export interface Transaction {
   category?: {
     id: string
     name: string
-    icon: string
+    key: string | null
+    parentId: string | null
+    icon: string | null
   }
 }

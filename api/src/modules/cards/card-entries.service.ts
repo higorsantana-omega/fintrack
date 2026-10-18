@@ -22,8 +22,7 @@ import {
   toCents,
   toNoonUtc,
 } from 'src/shared/calendar';
-import { GOAL_CATEGORY_ICON } from '../goals/goals.constants';
-import { CARD_PAYMENT_CATEGORY_ICON } from '../categories/categories.constants';
+import { SYSTEM_CATEGORY_KEYS } from '../categories/categories.constants';
 import { ValidateCardOwnershipService } from './validate-card-ownership.service';
 import {
   CardPurchaseKind,
@@ -43,11 +42,6 @@ import {
   getInvoiceMonth,
   isWithinDateWindow,
 } from './card-calculations';
-
-const EXCLUDED_CATEGORY_ICONS = [
-  GOAL_CATEGORY_ICON,
-  CARD_PAYMENT_CATEGORY_ICON,
-];
 
 type EntryFields = {
   value: number;
@@ -303,8 +297,8 @@ export class CardEntriesService {
   }
 
   /**
-   * Card entries take one of the user's expense categories other than
-   * "Metas" and "Fatura de cartão" (KTD8); refunds may have none.
+   * Card entries take one of the user's expense categories that is not a
+   * system category (KTD3); refunds may have none.
    */
   private async validateCategory(
     userId: string,
@@ -324,10 +318,10 @@ export class CardEntriesService {
 
     if (
       category.type !== 'EXPENSE' ||
-      EXCLUDED_CATEGORY_ICONS.includes(category.icon)
+      (category.key && SYSTEM_CATEGORY_KEYS.includes(category.key))
     ) {
       throw new BadRequestException(
-        'Card entries take an expense category other than "Metas" and "Fatura de cartão".',
+        'Card entries take an expense category that is not a system category.',
       );
     }
   }

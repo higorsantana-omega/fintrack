@@ -22,10 +22,10 @@ import { ReminderAction, ResolveReminderDto } from './dto/resolve-reminder.dto';
 import { ArchiveGoalDto } from './dto/archive-goal.dto';
 import {
   CONTRIBUTION_NAME_PREFIX,
-  GOAL_CATEGORY_ICON,
   MAX_GOAL_PERIOD_MONTHS,
   WITHDRAWAL_NAME_PREFIX,
 } from './goals.constants';
+import { GOAL_CATEGORY_KEY } from '../categories/categories.constants';
 import {
   getEvolutionSeries,
   getGoalStatus,
@@ -300,9 +300,9 @@ export class GoalsService {
   }
 
   private async getGoalCategory(userId: string, type: TransactionType) {
-    const category = await this.categoriesRepository.findByIcon(
+    const category = await this.categoriesRepository.findByKey(
       userId,
-      GOAL_CATEGORY_ICON,
+      GOAL_CATEGORY_KEY,
       type,
     );
 

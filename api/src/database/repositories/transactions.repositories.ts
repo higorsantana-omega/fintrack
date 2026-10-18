@@ -23,9 +23,32 @@ export class TransactionsRepository {
           select: {
             id: true,
             name: true,
+            key: true,
+            parentId: true,
             icon: true,
           },
         },
+      },
+    });
+  }
+
+  /** The month's transactions with what the category totals need (R9, R37). */
+  async findManyForSummary(userId: string, from: Date, to: Date) {
+    return this.prismaService.transaction.findMany({
+      where: { userId, date: { gte: from, lt: to } },
+      select: {
+        id: true,
+        name: true,
+        value: true,
+        date: true,
+        type: true,
+        categoryId: true,
+        creditCardId: true,
+        goalId: true,
+        borrowerId: true,
+        debtId: true,
+        bankAccount: { select: { id: true, name: true } },
+        category: { select: { key: true } },
       },
     });
   }

@@ -9,8 +9,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { transactionsService } from '../../../../../app/services/transactionsService'
 import toast from 'react-hot-toast'
 import { currencyStringToNumber } from '../../../../../app/utils/currencyStringToNumber'
-import { CARD_PAYMENT_CATEGORY_ICON } from '../../../../../app/utils/cardEntryCategories'
-import { getManualEntryCategories } from '../../../../../app/utils/debtCategories'
+import { getCategoryOptions } from '../../../../../app/utils/categories'
 
 const schema = z.object({
   value: z.string().nonempty('Informe o valor'),
@@ -76,14 +75,11 @@ export function useNewTransactionModalController() {
     }
   })
 
-  // Card invoices are paid from the card screen, which links the payment to the
-  // invoice, so "Fatura de cartão" is left out of a new transaction. The debt
-  // categories are left out too: their entries come from the debt screens.
-  const categories = useMemo(() => {
-    return getManualEntryCategories(categoriesList).filter(category => (
-      category.type === newTransactionType && category.icon !== CARD_PAYMENT_CATEGORY_ICON
-    ))
-  }, [categoriesList, newTransactionType])
+  // System categories (card invoice, debts, goals) are not offered here.
+  const categories = useMemo(
+    () => newTransactionType ? getCategoryOptions(categoriesList, newTransactionType) : [],
+    [categoriesList, newTransactionType]
+  )
 
   return { isLoading, mutateAsync, accounts, categories, handleSubmit, register, errors, control, reset, toggleCloseTransactionModal, isNewTransactionModalOpen, newTransactionType, toggleOpenTransactionModal }
 }

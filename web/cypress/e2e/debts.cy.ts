@@ -98,10 +98,10 @@ function pendingGoal(name: string, bankAccountId: string) {
   }
 }
 
-function withCategory(icon: string, build: (categoryId: string) => void) {
+function withCategory(key: string, build: (categoryId: string) => void) {
   cy.apiRequest('GET', '/categories').then(response => {
-    const categories = response.body as unknown as { id: string, icon: string, type: string }[]
-    build(categories.find(category => category.icon === icon && category.type === 'EXPENSE')!.id)
+    const categories = response.body as unknown as { id: string, key: string | null, type: string }[]
+    build(categories.find(category => category.key === key && category.type === 'EXPENSE')!.id)
   })
 }
 
@@ -443,7 +443,7 @@ describe('Dívidas', () => {
   it('leaves "Dívidas" and "Empréstimos" out of the categories of a new transaction and of a plain expense being edited (AE17)', () => {
     signUp()
     cy.createBankAccount('Itaú').then(accountId => {
-      withCategory('grocery', categoryId => {
+      withCategory('supermarket', categoryId => {
         cy.apiRequest('POST', '/transactions', {
           bankAccountId: accountId,
           categoryId,

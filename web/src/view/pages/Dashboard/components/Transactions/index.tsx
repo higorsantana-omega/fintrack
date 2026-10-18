@@ -99,7 +99,7 @@ export function Transactions() {
                     <div className='flex-1 flex items-center gap-3'>
                       <CategoryIcon
                         type={transaction.type === 'EXPENSE' ? 'expense' : 'income'}
-                        category={transaction.category?.icon}
+                        category={transaction.category}
                       />
 
                       <div>
