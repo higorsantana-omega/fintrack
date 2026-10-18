@@ -1,8 +1,9 @@
+import { Transition } from '@headlessui/react'
 import { PlusIcon } from '@radix-ui/react-icons'
 import { cn } from '../../../app/utils/cn'
 import { Button } from '../../components/Button'
-import { Spinner } from '../../components/Spinner'
 import { CategoriesDonut } from './components/CategoriesDonut'
+import { CategoriesSkeleton } from './components/CategoriesSkeleton'
 import { CategoryTree } from './components/CategoryTree'
 import { MonthNavigator } from './components/MonthNavigator'
 import { CategoryFormModal } from './modals/CategoryFormModal'
@@ -71,14 +72,17 @@ export function Categories() {
           </div>
         </header>
 
-        {(isLoadingSummary || !summary) && (
-          <div className='flex-1 flex items-center justify-center py-10'>
-            <Spinner className='w-10 h-10' />
-          </div>
-        )}
+        {(isLoadingSummary || !summary) && <CategoriesSkeleton groups={rows.length} />}
 
         {!isLoadingSummary && summary && (
-          <div className='grid grid-cols-1 lg:grid-cols-[18rem_1fr] gap-6 items-start'>
+          <Transition
+            appear
+            show
+            enter='transition-opacity duration-200'
+            enterFrom='opacity-0'
+            enterTo='opacity-100'
+            className='grid grid-cols-1 lg:grid-cols-[18rem_1fr] gap-6 items-start'
+          >
             <CategoriesDonut slices={slices} net={summary.net} />
 
             <div className='space-y-4 min-w-0'>
@@ -98,7 +102,7 @@ export function Categories() {
                 Não entram nos totais: pagamento de fatura de cartão, aportes em metas, empréstimos a pessoas e o dinheiro recebido de dívidas. Compras de cartão contam no mês da fatura, com as previsões das cobranças recorrentes.
               </p>
             </div>
-          </div>
+          </Transition>
         )}
       </section>
 
