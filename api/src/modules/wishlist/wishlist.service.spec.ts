@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   NotFoundException,
   ValidationPipe,
 } from '@nestjs/common';
@@ -17,6 +18,8 @@ import { SaveWishlistListDto } from './dto/save-wishlist-list.dto';
 import { SaveWishlistItemDto } from './dto/save-wishlist-item.dto';
 import { SaveWishlistLinkDto } from './dto/save-wishlist-link.dto';
 import { CreateWishlistPriceDto } from './dto/create-wishlist-price.dto';
+import { PostponeWishlistItemDto } from './dto/postpone-wishlist-item.dto';
+import { PurchaseWishlistItemDto } from './dto/purchase-wishlist-item.dto';
 
 const ANA = '11111111-1111-1111-1111-111111111111';
 const BIA = '22222222-2222-2222-2222-222222222222';
@@ -182,6 +185,26 @@ describe('WishlistService', () => {
       },
       findItemsByUserId: async (userId: string) =>
         items.filter((item) => item.userId === userId).map(withCategory),
+      findActiveWithListByUserId: async (userId: string) =>
+        items
+          .filter((item) => item.userId === userId && item.status === 'ACTIVE')
+          .map(withCategory)
+          .map((item) => ({
+            ...item,
+            wishlist: {
+              name: lists.find(({ id }) => id === item.wishlistId).name,
+            },
+          })),
+      updateItemFromStatus: async (
+        itemId: string,
+        from: string,
+        data: object,
+      ) => {
+        const item = itemById(itemId);
+        return item.status === from
+          ? withCategory(Object.assign(item, data))
+          : null;
+      },
       findItem: async (userId: string, itemId: string) => {
         const item = items.find(
           (candidate) => candidate.userId === userId && candidate.id === itemId,
@@ -644,6 +667,301 @@ describe('WishlistService', () => {
     });
   });
 
+  describe('reminders and item actions', () => {
+    const TODAY = day('2026-10-13');
+
+    it('lists only active items whose reminder has arrived, by date, creation and id (R29)', async () => {
+      const later = makeItem(ANA, {
+        name: 'B',
+        nextReminder: day('2026-10-13'),
+        createdAt: new Date('2026-10-02T15:00:00.000Z'),
+      });
+      const older = makeItem(ANA, {
+        name: 'A',
+        nextReminder: day('2026-10-05'),
+      });
+      const sameDayEarlier = makeItem(ANA, {
+        name: 'C',
+        nextReminder: day('2026-10-13'),
+        createdAt: new Date('2026-10-01T10:00:00.000Z'),
+      });
+      makeItem(ANA, { nextReminder: day('2026-10-14') });
+      makeItem(ANA, { status: 'PURCHASED', nextReminder: null });
+      makeItem(ANA, { status: 'GAVE_UP', nextReminder: null });
+      makeItem(BIA, { nextReminder: day('2026-10-01') });
+      const natal = makeList(ANA, 'Natal');
+      later.wishlistId = natal.id;
+
+      const reminders = await service.findReminders(ANA);
+
+      expect(reminders.map(({ id }) => id)).toEqual([
+        older.id,
+        sameDayEarlier.id,
+        later.id,
+      ]);
+      expect(reminders.map(({ wishlistName }) => wishlistName)).toEqual([
+        'Geral',
+        'Geral',
+        'Natal',
+      ]);
+      expect(reminders[0]).toMatchObject({
+        status: 'ACTIVE',
+        nextReminder: noon('2026-10-05'),
+        links: [],
+        lowestPrice: null,
+      });
+    });
+
+    describe('purchase', () => {
+      const body = (overrides = {}) => ({
+        paidValue: 499,
+        paidDate: '2026-10-13T15:00:00.000Z',
+        ...overrides,
+      });
+
+      it('stores the value and the day, and stops the reminder', async () => {
+        const item = makeItem(ANA);
+
+        const result = await service.purchase(ANA, item.id, body());
+
+        expect(result).toMatchObject({
+          status: 'PURCHASED',
+          paidValue: 499,
+          paidDate: noon('2026-10-13'),
+          nextReminder: null,
+        });
+        expect(itemById(item.id)).toMatchObject({
+          status: 'PURCHASED',
+          paidValue: 499,
+          paidDate: TODAY,
+          nextReminder: null,
+        });
+      });
+
+      it('keeps an instant at 23:00 in Brasília on the same São Paulo day', async () => {
+        const item = makeItem(ANA);
+
+        await service.purchase(
+          ANA,
+          item.id,
+          body({ paidDate: '2026-10-14T02:00:00.000Z' }),
+        );
+
+        expect(itemById(item.id).paidDate).toEqual(TODAY);
+      });
+
+      it('answers 409 for an item already purchased and keeps the paid value', async () => {
+        const item = makeItem(ANA);
+        await service.purchase(ANA, item.id, body());
+
+        await expect(
+          service.purchase(ANA, item.id, body({ paidValue: 1 })),
+        ).rejects.toBeInstanceOf(ConflictException);
+        expect(itemById(item.id).paidValue).toBe(499);
+      });
+
+      it('answers 409 when the item changes state during the purchase', async () => {
+        const item = makeItem(ANA);
+        const repository = (service as any).wishlistRepository;
+        const update = repository.updateItemFromStatus;
+        repository.updateItemFromStatus = async (...args: unknown[]) => {
+          itemById(item.id).status = 'GAVE_UP';
+          return update(...args);
+        };
+
+        await expect(
+          service.purchase(ANA, item.id, body()),
+        ).rejects.toBeInstanceOf(ConflictException);
+        expect(itemById(item.id).paidValue).toBeNull();
+      });
+
+      it('answers 400 for a date outside the allowed window', async () => {
+        const item = makeItem(ANA);
+
+        await expect(
+          service.purchase(
+            ANA,
+            item.id,
+            body({ paidDate: '2060-01-01T12:00:00.000Z' }),
+          ),
+        ).rejects.toBeInstanceOf(BadRequestException);
+        expect(itemById(item.id).status).toBe('ACTIVE');
+      });
+
+      it('answers 404 for an item of another user', async () => {
+        const item = makeItem(BIA);
+
+        await expect(
+          service.purchase(ANA, item.id, body()),
+        ).rejects.toBeInstanceOf(NotFoundException);
+      });
+
+      it('does not depend on any transaction (AE10)', async () => {
+        const item = makeItem(ANA);
+
+        await service.purchase(ANA, item.id, body());
+
+        // The repository fake has no transaction access: the item keeps what
+        // was paid with no link to the expense that may be deleted later.
+        expect(itemById(item.id)).toMatchObject({
+          status: 'PURCHASED',
+          paidValue: 499,
+        });
+        expect(Object.keys(itemById(item.id))).not.toContain('transactionId');
+      });
+    });
+
+    describe('give-up', () => {
+      it('gives up an active item and stops its reminder, keeping links and prices (R26)', async () => {
+        const item = makeItem(ANA);
+        const link = makeLink(item);
+        makePrice(link, 10, '2026-10-01');
+
+        const result = await service.giveUp(ANA, item.id);
+
+        expect(result).toMatchObject({ status: 'GAVE_UP', nextReminder: null });
+        expect(result.links[0].prices).toHaveLength(1);
+      });
+
+      it.each(['GAVE_UP', 'PURCHASED'])(
+        'answers 409 for a %s item',
+        async (status) => {
+          const item = makeItem(ANA, { status, nextReminder: null } as never);
+
+          await expect(service.giveUp(ANA, item.id)).rejects.toBeInstanceOf(
+            ConflictException,
+          );
+        },
+      );
+    });
+
+    describe('reactivate', () => {
+      it('reactivates with the reminder tomorrow when the planned month is past (AE12)', async () => {
+        const item = makeItem(ANA, {
+          status: 'GAVE_UP',
+          nextReminder: null,
+          plannedMonth: day('2026-09-01'),
+        });
+
+        const result = await service.reactivate(ANA, item.id);
+
+        expect(result).toMatchObject({
+          status: 'ACTIVE',
+          plannedMonth: '2026-09',
+          nextReminder: noon('2026-10-14'),
+        });
+      });
+
+      it('reactivates an item with a future planned day at that day', async () => {
+        const item = makeItem(ANA, {
+          status: 'GAVE_UP',
+          nextReminder: null,
+          plannedMonth: day('2026-12-01'),
+          plannedDay: day('2026-12-25'),
+        });
+
+        const result = await service.reactivate(ANA, item.id);
+
+        expect(result.nextReminder).toEqual(noon('2026-12-25'));
+      });
+
+      it('reactivates an item without a planned date 30 days ahead', async () => {
+        const item = makeItem(ANA, { status: 'GAVE_UP', nextReminder: null });
+
+        const result = await service.reactivate(ANA, item.id);
+
+        expect(result.nextReminder).toEqual(noon('2026-11-12'));
+      });
+
+      it.each(['ACTIVE', 'PURCHASED'])(
+        'answers 409 for a %s item',
+        async (status) => {
+          const item = makeItem(ANA, { status } as never);
+
+          await expect(service.reactivate(ANA, item.id)).rejects.toBeInstanceOf(
+            ConflictException,
+          );
+        },
+      );
+    });
+
+    describe('keep', () => {
+      it('moves an item without a date 30 days after the answer (AE3)', async () => {
+        const item = makeItem(ANA, { nextReminder: day('2026-10-13') });
+
+        const result = await service.keep(ANA, item.id);
+
+        expect(result.nextReminder).toEqual(noon('2026-11-12'));
+        expect(result.status).toBe('ACTIVE');
+      });
+
+      it('answers 400 for an item with a planned date', async () => {
+        const item = makeItem(ANA, { plannedMonth: day('2026-11-01') });
+
+        await expect(service.keep(ANA, item.id)).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+        expect(itemById(item.id).nextReminder).toEqual(day('2026-11-12'));
+      });
+
+      it('answers 409 for an item that is not active', async () => {
+        const item = makeItem(ANA, {
+          status: 'GAVE_UP',
+          nextReminder: null,
+        } as never);
+
+        await expect(service.keep(ANA, item.id)).rejects.toBeInstanceOf(
+          ConflictException,
+        );
+      });
+    });
+
+    describe('postpone', () => {
+      it('moves the planned month to December and the reminder to 01/12 (AE5)', async () => {
+        const item = makeItem(ANA, {
+          plannedMonth: day('2026-11-01'),
+          nextReminder: day('2026-11-01'),
+        });
+
+        const result = await service.postpone(ANA, item.id, {
+          plannedMonth: '2026-12',
+        });
+
+        expect(result).toMatchObject({
+          plannedMonth: '2026-12',
+          plannedDay: null,
+          nextReminder: noon('2026-12-01'),
+        });
+      });
+
+      it('stores the day clamped to the month and reminds on it', async () => {
+        const item = makeItem(ANA);
+
+        const result = await service.postpone(ANA, item.id, {
+          plannedMonth: '2027-02',
+          plannedDay: 31,
+        });
+
+        expect(result).toMatchObject({
+          plannedMonth: '2027-02',
+          plannedDay: 28,
+          nextReminder: noon('2027-02-28'),
+        });
+      });
+
+      it('answers 409 for an item that is not active', async () => {
+        const item = makeItem(ANA, {
+          status: 'PURCHASED',
+          nextReminder: null,
+        } as never);
+
+        await expect(
+          service.postpone(ANA, item.id, { plannedMonth: '2026-12' }),
+        ).rejects.toBeInstanceOf(ConflictException);
+      });
+    });
+  });
+
   describe('links', () => {
     it('creates, edits and removes a link of the own item', async () => {
       const item = makeItem(ANA);
@@ -835,5 +1153,50 @@ describe('Wishlist request validation', () => {
     await expect(
       validate({ value: 99.99 }, CreateWishlistPriceDto),
     ).resolves.toEqual({ value: 99.99 });
+  });
+
+  it.each([
+    ['no value', { paidDate: '2026-10-13' }],
+    ['zero', { paidValue: 0, paidDate: '2026-10-13' }],
+    ['three decimals', { paidValue: 1.005, paidDate: '2026-10-13' }],
+    ['a text value', { paidValue: '10', paidDate: '2026-10-13' }],
+    ['no date', { paidValue: 10 }],
+    ['an invalid date', { paidValue: 10, paidDate: 'ontem' }],
+  ])('rejects a purchase with %s with 400', async (_, body) => {
+    await expect(
+      validate(body, PurchaseWishlistItemDto),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('accepts a purchase with a value and an ISO date', async () => {
+    const body = { paidValue: 499.9, paidDate: '2026-10-13T15:00:00.000Z' };
+
+    await expect(validate(body, PurchaseWishlistItemDto)).resolves.toEqual(
+      body,
+    );
+  });
+
+  it.each([
+    ['a day without a month', { plannedDay: 10 }],
+    ['no body', {}],
+    ['month 13', { plannedMonth: '2026-13' }],
+    ['day 0', { plannedMonth: '2026-12', plannedDay: 0 }],
+    ['day 32', { plannedMonth: '2026-12', plannedDay: 32 }],
+    ['a fractional day', { plannedMonth: '2026-12', plannedDay: 1.5 }],
+  ])('rejects a postponement with %s with 400', async (_, body) => {
+    await expect(
+      validate(body, PostponeWishlistItemDto),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('accepts a postponement with a month, with or without a day', async () => {
+    for (const body of [
+      { plannedMonth: '2026-12' },
+      { plannedMonth: '2026-12', plannedDay: 31 },
+    ]) {
+      await expect(validate(body, PostponeWishlistItemDto)).resolves.toEqual(
+        body,
+      );
+    }
   });
 });

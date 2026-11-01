@@ -1,14 +1,23 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { WishlistRepository } from 'src/database/repositories/wishlist.repositories';
-import { getToday } from 'src/shared/calendar';
+import { WishlistItemStatus } from '@prisma/client';
+import {
+  WishlistItemActionData,
+  WishlistRepository,
+} from 'src/database/repositories/wishlist.repositories';
+import { getToday, toCalendarDate } from 'src/shared/calendar';
+import { isWithinDateWindow } from '../cards/card-calculations';
+import { DATE_OUT_OF_RANGE_MESSAGE } from '../cards/cards.constants';
 import { SYSTEM_CATEGORY_KEYS } from '../categories/categories.constants';
 import { ValidateCategoryOwnershipService } from '../categories/validate-category-ownership.service';
 import { CreateWishlistPriceDto } from './dto/create-wishlist-price.dto';
+import { PostponeWishlistItemDto } from './dto/postpone-wishlist-item.dto';
+import { PurchaseWishlistItemDto } from './dto/purchase-wishlist-item.dto';
 import { SaveWishlistItemDto } from './dto/save-wishlist-item.dto';
 import { SaveWishlistLinkDto } from './dto/save-wishlist-link.dto';
 import { SaveWishlistListDto } from './dto/save-wishlist-list.dto';
@@ -22,7 +31,9 @@ import {
 import {
   PlannedDate,
   getPlannedReminder,
+  getStillWantedReminder,
   hasPlannedDateChanged,
+  isReminderDue,
   toPlannedDate,
 } from './wishlist-calculations';
 import { ValidateWishlistItemOwnershipService } from './validate-wishlist-item-ownership.service';
@@ -31,6 +42,10 @@ import { ValidateWishlistListOwnershipService } from './validate-wishlist-list-o
 const GENERAL_DELETE_MESSAGE = 'The general wishlist cannot be deleted.';
 const GENERAL_NOT_FOUND_MESSAGE = 'General wishlist not found.';
 const DAY_WITHOUT_MONTH_MESSAGE = 'A planned day requires a planned month.';
+const NOT_ACTIVE_MESSAGE = 'The wishlist item is not active.';
+const NOT_GAVE_UP_MESSAGE = 'The wishlist item was not given up.';
+const HAS_PLANNED_DATE_MESSAGE =
+  'Only an item without a planned date can be kept.';
 const CATEGORY_MESSAGE =
   'Wishlist items take an expense category that is not a system category.';
 
@@ -157,6 +172,126 @@ export class WishlistService {
     return null;
   }
 
+  // Reminders and item actions (KTD4, KTD8) -------------------------------
+
+  /** Active items whose reminder has arrived, the oldest first (R16, R29). */
+  async findReminders(userId: string) {
+    const today = getToday();
+    const items = await this.wishlistRepository.findActiveWithListByUserId(
+      userId,
+    );
+
+    return items
+      .filter(
+        ({ nextReminder }) =>
+          nextReminder && isReminderDue(nextReminder, today),
+      )
+      .sort(
+        (a, b) =>
+          a.nextReminder.getTime() - b.nextReminder.getTime() ||
+          a.createdAt.getTime() - b.createdAt.getTime() ||
+          a.id.localeCompare(b.id),
+      )
+      .map((item) => ({
+        ...toItemView(item),
+        wishlistName: item.wishlist.name,
+      }));
+  }
+
+  /** Saves what was paid and when; the item does not follow the launch (R33). */
+  async purchase(
+    userId: string,
+    itemId: string,
+    purchaseWishlistItemDto: PurchaseWishlistItemDto,
+  ) {
+    const item = await this.validateItemOwnershipService.validate(
+      userId,
+      itemId,
+    );
+    this.assertStatus(item.status, 'ACTIVE', NOT_ACTIVE_MESSAGE);
+
+    const paidDate = toCalendarDate(new Date(purchaseWishlistItemDto.paidDate));
+    if (!isWithinDateWindow(paidDate, getToday())) {
+      throw new BadRequestException(DATE_OUT_OF_RANGE_MESSAGE);
+    }
+
+    return this.transition(itemId, 'ACTIVE', NOT_ACTIVE_MESSAGE, {
+      status: 'PURCHASED',
+      paidValue: purchaseWishlistItemDto.paidValue,
+      paidDate,
+      nextReminder: null,
+    });
+  }
+
+  /** The item leaves the active list; links and prices stay (R26). */
+  async giveUp(userId: string, itemId: string) {
+    const item = await this.validateItemOwnershipService.validate(
+      userId,
+      itemId,
+    );
+    this.assertStatus(item.status, 'ACTIVE', NOT_ACTIVE_MESSAGE);
+
+    return this.transition(itemId, 'ACTIVE', NOT_ACTIVE_MESSAGE, {
+      status: 'GAVE_UP',
+      nextReminder: null,
+    });
+  }
+
+  /** The reminder is calculated as when saving the planned date (R28). */
+  async reactivate(userId: string, itemId: string) {
+    const item = await this.validateItemOwnershipService.validate(
+      userId,
+      itemId,
+    );
+    this.assertStatus(item.status, 'GAVE_UP', NOT_GAVE_UP_MESSAGE);
+
+    const planned: PlannedDate | null = item.plannedMonth
+      ? { plannedMonth: item.plannedMonth, plannedDay: item.plannedDay }
+      : null;
+
+    return this.transition(itemId, 'GAVE_UP', NOT_GAVE_UP_MESSAGE, {
+      status: 'ACTIVE',
+      nextReminder: getPlannedReminder(planned, getToday()),
+    });
+  }
+
+  /** "Ainda quero": only for an item without a planned date (R18, R19). */
+  async keep(userId: string, itemId: string) {
+    const item = await this.validateItemOwnershipService.validate(
+      userId,
+      itemId,
+    );
+    this.assertStatus(item.status, 'ACTIVE', NOT_ACTIVE_MESSAGE);
+    if (item.plannedMonth) {
+      throw new BadRequestException(HAS_PLANNED_DATE_MESSAGE);
+    }
+
+    return this.transition(itemId, 'ACTIVE', NOT_ACTIVE_MESSAGE, {
+      nextReminder: getStillWantedReminder(getToday()),
+    });
+  }
+
+  /** A new planned date recalculates the reminder (R20). */
+  async postpone(
+    userId: string,
+    itemId: string,
+    { plannedMonth, plannedDay }: PostponeWishlistItemDto,
+  ) {
+    const item = await this.validateItemOwnershipService.validate(
+      userId,
+      itemId,
+    );
+    this.assertStatus(item.status, 'ACTIVE', NOT_ACTIVE_MESSAGE);
+
+    const planned = toPlannedDate(plannedMonth, plannedDay);
+
+    return this.transition(itemId, 'ACTIVE', NOT_ACTIVE_MESSAGE, {
+      plannedMonth: planned.plannedMonth,
+      plannedDay: planned.plannedDay,
+      nextReminder: getPlannedReminder(planned, getToday()),
+    });
+  }
+
   // Links ----------------------------------------------------------------
 
   async createLink(
@@ -224,6 +359,31 @@ export class WishlistService {
   }
 
   // Helpers --------------------------------------------------------------
+
+  private assertStatus(
+    status: WishlistItemStatus,
+    expected: WishlistItemStatus,
+    message: string,
+  ) {
+    if (status !== expected) throw new ConflictException(message);
+  }
+
+  /** The write only lands while the item is still in the origin status (KTD8). */
+  private async transition(
+    itemId: string,
+    from: WishlistItemStatus,
+    conflictMessage: string,
+    data: WishlistItemActionData,
+  ) {
+    const updated = await this.wishlistRepository.updateItemFromStatus(
+      itemId,
+      from,
+      data,
+    );
+    if (!updated) throw new ConflictException(conflictMessage);
+
+    return toItemView(updated);
+  }
 
   private async getGeneralList(userId: string) {
     const general = await this.wishlistRepository.findGeneralList(

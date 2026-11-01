@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, WishlistItemStatus } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
 const linkInclude = Prisma.validator<Prisma.WishlistLinkInclude>()({
@@ -20,6 +20,15 @@ export type WishlistItemWithRelations = Prisma.WishlistItemGetPayload<{
   include: typeof itemInclude;
 }>;
 
+const reminderInclude = Prisma.validator<Prisma.WishlistItemInclude>()({
+  ...itemInclude,
+  wishlist: { select: { name: true } },
+});
+
+export type WishlistReminderItem = Prisma.WishlistItemGetPayload<{
+  include: typeof reminderInclude;
+}>;
+
 export type WishlistLinkWithPrices = Prisma.WishlistLinkGetPayload<{
   include: typeof linkInclude;
 }>;
@@ -32,6 +41,16 @@ export type WishlistItemData = {
   plannedDay: Date | null;
   /** Left as is when omitted. */
   nextReminder?: Date | null;
+};
+
+/** The fields an item action writes; the reminder is always set explicitly. */
+export type WishlistItemActionData = {
+  status?: WishlistItemStatus;
+  paidValue?: number;
+  paidDate?: Date;
+  plannedMonth?: Date;
+  plannedDay?: Date | null;
+  nextReminder: Date | null;
 };
 
 export type WishlistLinkData = { url: string; storeName: string };
@@ -90,6 +109,14 @@ export class WishlistRepository {
     });
   }
 
+  /** The active items with their list name; the service picks the due ones. */
+  findActiveWithListByUserId(userId: string): Promise<WishlistReminderItem[]> {
+    return this.prismaService.wishlistItem.findMany({
+      where: { userId, status: 'ACTIVE' },
+      include: reminderInclude,
+    });
+  }
+
   findItem(userId: string, itemId: string): Promise<WishlistItemWithRelations> {
     return this.prismaService.wishlistItem.findFirst({
       where: { userId, id: itemId },
@@ -114,6 +141,27 @@ export class WishlistRepository {
     return this.prismaService.wishlistItem.update({
       where: { id: itemId },
       data,
+      include: itemInclude,
+    });
+  }
+
+  /**
+   * Writes only while the item is still in the status the action starts from,
+   * so two answers never overwrite each other; null when it no longer is.
+   */
+  async updateItemFromStatus(
+    itemId: string,
+    from: WishlistItemStatus,
+    data: WishlistItemActionData,
+  ): Promise<WishlistItemWithRelations | null> {
+    const { count } = await this.prismaService.wishlistItem.updateMany({
+      where: { id: itemId, status: from },
+      data,
+    });
+    if (count === 0) return null;
+
+    return this.prismaService.wishlistItem.findUnique({
+      where: { id: itemId },
       include: itemInclude,
     });
   }

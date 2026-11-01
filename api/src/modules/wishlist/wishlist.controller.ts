@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import ActiveUserId from 'src/decorators/activeUserId.decorator';
 import { CreateWishlistPriceDto } from './dto/create-wishlist-price.dto';
+import { PostponeWishlistItemDto } from './dto/postpone-wishlist-item.dto';
+import { PurchaseWishlistItemDto } from './dto/purchase-wishlist-item.dto';
 import { SaveWishlistItemDto } from './dto/save-wishlist-item.dto';
 import { SaveWishlistLinkDto } from './dto/save-wishlist-link.dto';
 import { SaveWishlistListDto } from './dto/save-wishlist-list.dto';
@@ -85,6 +87,63 @@ export class WishlistController {
     @Param('itemId', ParseUUIDPipe) itemId: string,
   ) {
     return this.wishlistService.removeItem(userId, itemId);
+  }
+
+  // Reminders and item actions --------------------------------------------
+
+  @Get('reminders')
+  findReminders(@ActiveUserId() userId: string) {
+    return this.wishlistService.findReminders(userId);
+  }
+
+  @Post('items/:itemId/purchase')
+  purchase(
+    @ActiveUserId() userId: string,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
+    @Body() purchaseWishlistItemDto: PurchaseWishlistItemDto,
+  ) {
+    return this.wishlistService.purchase(
+      userId,
+      itemId,
+      purchaseWishlistItemDto,
+    );
+  }
+
+  @Post('items/:itemId/give-up')
+  giveUp(
+    @ActiveUserId() userId: string,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
+  ) {
+    return this.wishlistService.giveUp(userId, itemId);
+  }
+
+  @Post('items/:itemId/reactivate')
+  reactivate(
+    @ActiveUserId() userId: string,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
+  ) {
+    return this.wishlistService.reactivate(userId, itemId);
+  }
+
+  @Post('items/:itemId/keep')
+  keep(
+    @ActiveUserId() userId: string,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
+  ) {
+    return this.wishlistService.keep(userId, itemId);
+  }
+
+  @Post('items/:itemId/postpone')
+  postpone(
+    @ActiveUserId() userId: string,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
+    @Body() postponeWishlistItemDto: PostponeWishlistItemDto,
+  ) {
+    return this.wishlistService.postpone(
+      userId,
+      itemId,
+      postponeWishlistItemDto,
+    );
   }
 
   // Links and prices -----------------------------------------------------
