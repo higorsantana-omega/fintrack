@@ -10,6 +10,7 @@ import { TransactionsModule } from './modules/transactions/transactions.module';
 import { GoalsModule } from './modules/goals/goals.module';
 import { CardsModule } from './modules/cards/cards.module';
 import { DebtsModule } from './modules/debts/debts.module';
+import { WishlistModule } from './modules/wishlist/wishlist.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { DebtsModule } from './modules/debts/debts.module';
     GoalsModule,
     CardsModule,
     DebtsModule,
+    WishlistModule,
   ],
   controllers: [],
   providers: [
