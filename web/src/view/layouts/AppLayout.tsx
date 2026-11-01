@@ -7,6 +7,7 @@ import { InvoiceReminders } from '../components/InvoiceReminders'
 import { InvoiceReminderBanner } from '../components/InvoiceReminders/InvoiceReminderBanner'
 import { DebtReminders } from '../components/DebtReminders'
 import { DebtReminderBanner } from '../components/DebtReminders/DebtReminderBanner'
+import { WishlistReminders } from '../components/WishlistReminders'
 import { PayInvoiceProvider } from '../components/PayInvoiceModal/PayInvoiceContext'
 import { PayDebtProvider } from '../components/PayDebtModal/PayDebtContext'
 import { PurchaseLaunchProvider } from '../components/PurchaseLaunch/PurchaseLaunchContext'
@@ -19,8 +20,10 @@ export function AppLayout() {
   const { reminders: debtReminders } = useDebtReminders()
   const [isInvoiceQueueDone, setIsInvoiceQueueDone] = useState(false)
   const [isDebtQueueDone, setIsDebtQueueDone] = useState(false)
+  const [isContributionQueueDone, setIsContributionQueueDone] = useState(false)
   const handleInvoiceQueueDone = useCallback(() => setIsInvoiceQueueDone(true), [])
   const handleDebtQueueDone = useCallback(() => setIsDebtQueueDone(true), [])
+  const handleContributionQueueDone = useCallback(() => setIsContributionQueueDone(true), [])
 
   const navigation = [
     { to: '/', label: 'Dashboard', end: true },
@@ -82,7 +85,11 @@ export function AppLayout() {
 
             <InvoiceReminders onDone={handleInvoiceQueueDone} />
             <DebtReminders isHeld={!isInvoiceQueueDone} onDone={handleDebtQueueDone} />
-            <ContributionReminders isHeld={!isInvoiceQueueDone || !isDebtQueueDone} />
+            <ContributionReminders
+              isHeld={!isInvoiceQueueDone || !isDebtQueueDone}
+              onDone={handleContributionQueueDone}
+            />
+            <WishlistReminders isHeld={!isInvoiceQueueDone || !isDebtQueueDone || !isContributionQueueDone} />
           </div>
         </PurchaseLaunchProvider>
       </PayDebtProvider>

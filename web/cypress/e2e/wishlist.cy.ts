@@ -120,6 +120,51 @@ function openDashboardForm(menuItem: string) {
   cy.get('[role="menu"]').should('not.exist')
 }
 
+const daysFromToday = (days: number) => new Date(today.getFullYear(), today.getMonth(), today.getDate() + days, 12)
+const saoPauloDay = (date: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(date)
+
+// Closed yesterday and due in two days, so its invoice is in reminder.
+function closingSoonCard(name: string) {
+  return {
+    name,
+    color: '#7950F2',
+    limit: 10000,
+    closingDay: daysFromToday(-1).getDate(),
+    dueDay: daysFromToday(2).getDate()
+  }
+}
+
+type ApiItem = { id: string, name: string, plannedMonth: string | null, plannedDay: number | null, nextReminder: string | null, status: string }
+
+function withItems(build: (items: ApiItem[]) => void) {
+  cy.apiRequest('GET', '/wishlist/items').then(response => {
+    build(response.body as unknown as ApiItem[])
+  })
+}
+
+// The API refuses an item whose reminder has already arrived (R15), so the
+// reminder window is fed by the real items it would have returned (KTD17).
+// The actions still hit the real rows.
+function stubReminders(names: string[]) {
+  withItems(items => {
+    const reminders = names.map(name => ({ ...items.find(item => item.name === name)!, wishlistName: 'Geral' }))
+    cy.intercept('GET', '**/wishlist/reminders', { body: reminders })
+  })
+}
+
+function visitHome() {
+  cy.visit('http://localhost:5173/')
+  cy.get('nav').should('be.visible')
+}
+
+const reminderName = () => cy.get('#wishlist-reminder-name')
+
+// The stub outlives cy.visit, so it is emptied once the queue was answered,
+// as the real API would no longer return the resolved items.
+function clearReminderStub() {
+  cy.intercept('GET', '**/wishlist/reminders', { body: [] })
+}
+
 describe('Wishlist', () => {
   it('keeps the Dashboard new expense and new income forms working', () => {
     signUp()
@@ -516,5 +561,181 @@ describe('Wishlist', () => {
     cy.get('button').contains('Entendi').click()
     cy.get('#wishlist-status-purchased').click()
     itemRow('Cadeira').find('.wishlist-item-paid').invoke('text').should('match', brl('150,00'))
+  })
+
+  it('shows the purchase reminder after the invoice one, with the item data and the store links (AE1)', () => {
+    signUp()
+    cy.createBankAccount('Itaú')
+    cy.createCard(closingSoonCard('Nubank')).then(cardId => {
+      withCategory('food', categoryId => {
+        cy.createCardPurchase(cardId, {
+          kind: 'PURCHASE',
+          description: 'Mercado',
+          value: 1230,
+          date: daysFromToday(-3).toISOString(),
+          categoryId
+        })
+      })
+    })
+    withCategory('shopping', categoryId => {
+      cy.createWishlistItem({ name: 'Air fryer', categoryId, plannedMonth: monthKeyOf(monthAt(1)) }).then(itemId => {
+        cy.createWishlistLink(itemId, { url: 'https://www.amazon.com.br/air-fryer', storeName: 'Amazon' }).then(linkId => {
+          cy.addWishlistPrice(linkId, 529)
+        })
+      })
+    })
+    stubReminders(['Air fryer'])
+
+    visitHome()
+    cy.get('#invoice-reminder-card').should('have.text', 'Nubank')
+    reminderName().should('not.exist')
+    cy.get('#invoice-reminder-later').click()
+
+    reminderName().should('have.text', 'Air fryer')
+    cy.get('#wishlist-reminder-list').should('have.text', 'Geral')
+    cy.get('#wishlist-reminder-category').should('have.text', 'Compras')
+    cy.get('#wishlist-reminder-planned').should('have.text', monthLabelOf(monthAt(1)))
+    cy.get('#wishlist-reminder-price').invoke('text').should('match', brl('529,00'))
+    cy.get('#wishlist-reminder-price-store').should('contain', 'Amazon').and('contain', todayLabel)
+    cy.get('.wishlist-reminder-link')
+      .should('have.attr', 'href', 'https://www.amazon.com.br/air-fryer')
+      .and('have.attr', 'target', '_blank')
+    cy.get('#wishlist-reminder-keep').should('not.exist')
+  })
+
+  it('does not bring a closed purchase reminder back until the app is opened again (AE6)', () => {
+    signUp()
+    cy.createWishlistItem({ name: 'Air fryer', plannedMonth: monthKeyOf(monthAt(1)) })
+    stubReminders(['Air fryer'])
+
+    visitHome()
+    reminderName().should('have.text', 'Air fryer')
+    cy.get('[role="dialog"] header button').first().click()
+    reminderName().should('not.exist')
+
+    cy.get('nav').contains('Metas').click()
+    cy.get('nav').contains('Wishlist').click()
+    cy.get('#wishlist-lists').should('be.visible')
+    cy.get('nav').contains('Dashboard').click()
+    reminderName().should('not.exist')
+
+    cy.reload()
+    reminderName().should('have.text', 'Air fryer')
+  })
+
+  it('suggests the next month when postponing, and plans the item for it without a day (AE5)', () => {
+    signUp()
+    cy.createWishlistItem({ name: 'Air fryer', plannedMonth: monthKeyOf(monthAt(0)) })
+    stubReminders(['Air fryer'])
+
+    visitHome()
+    reminderName().should('have.text', 'Air fryer')
+    cy.get('#wishlist-reminder-postpone').click()
+    cy.get('#wishlist-reminder-month').should('have.value', monthKeyOf(monthAt(1)))
+    cy.get('#wishlist-reminder-day').should('have.value', '')
+
+    cy.get('#wishlist-reminder-postpone-back').click()
+    reminderName().should('have.text', 'Air fryer')
+    cy.get('#wishlist-reminder-postpone').click()
+    cy.get('#wishlist-reminder-postpone-confirm').click()
+    cy.contains('Item adiado!')
+    reminderName().should('not.exist')
+
+    withItems(items => {
+      const item = items.find(({ name }) => name === 'Air fryer')!
+      expect(item.plannedMonth).to.eq(monthKeyOf(monthAt(1)))
+      expect(item.plannedDay).to.eq(null)
+      expect(item.nextReminder!.slice(0, 10)).to.eq(`${monthKeyOf(monthAt(1))}-01`)
+    })
+  })
+
+  it('asks if the user still wants an item without a date, and asks again in 30 days (F3)', () => {
+    signUp()
+    cy.createWishlistItem({ name: 'Livro' })
+    stubReminders(['Livro'])
+
+    visitHome()
+    reminderName().should('have.text', 'Livro')
+    cy.get('#wishlist-reminder-planned').should('have.text', 'sem data')
+    cy.get('#wishlist-reminder-keep').click()
+    cy.contains('Combinado!')
+    reminderName().should('not.exist')
+
+    withItems(items => {
+      const item = items.find(({ name }) => name === 'Livro')!
+      expect(item.status).to.eq('ACTIVE')
+      expect(item.nextReminder!.slice(0, 10)).to.eq(saoPauloDay(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)))
+    })
+  })
+
+  it('brings the same reminder back when the purchase form is cancelled, and moves to the next item once it is saved', () => {
+    signUp()
+    cy.createBankAccount('Itaú')
+    cy.createBankAccount('Inter')
+    withCategory('shopping', categoryId => {
+      createPricedItem('Air fryer', 529, categoryId)
+      createPricedItem('Livro', 40, categoryId)
+    })
+    stubReminders(['Air fryer', 'Livro'])
+
+    visitHome()
+    reminderName().should('have.text', 'Air fryer')
+    cy.get('#wishlist-reminder-bought').click()
+    reminderName().should('not.exist')
+    cy.get('#purchase-kind-account').click()
+    cy.get('#name').should('have.value', 'Air fryer')
+    cy.get('#transactionValue').invoke('val').should('match', /^529,00$/)
+    cy.get('[role="dialog"] header button').first().click()
+    // Cancelling closes the form and brings the reminder window back (KTD7).
+    cy.get('#transactionSubmit').should('not.exist')
+    reminderName().should('have.text', 'Air fryer')
+
+    cy.get('#wishlist-reminder-bought').click()
+    cy.get('#purchase-kind-account').click()
+    selectLastOption('transactionBankAccountId')
+    cy.get('#transactionSubmit').click()
+    cy.contains('Despesa cadastrada com sucesso!')
+    reminderName().should('have.text', 'Livro')
+
+    cy.get('#wishlist-reminder-give-up').click()
+    reminderName().should('not.exist')
+
+    clearReminderStub()
+    visitWishlist()
+    cy.get('#wishlist-status-purchased').click()
+    itemRow('Air fryer').find('.wishlist-item-paid').invoke('text').should('match', brl('529,00'))
+  })
+
+  it('moves the item to Desistidos when the user gives up from the reminder', () => {
+    signUp()
+    cy.createWishlistItem({ name: 'Livro' })
+    stubReminders(['Livro'])
+
+    visitHome()
+    reminderName().should('have.text', 'Livro')
+    cy.get('#wishlist-reminder-give-up').click()
+    cy.contains('Item movido para Desistidos.')
+    reminderName().should('not.exist')
+
+    clearReminderStub()
+    visitWishlist()
+    cy.get('#wishlist-status-gave-up').click()
+    itemRow('Livro').should('be.visible')
+  })
+
+  it('moves on without an error when the item was already resolved elsewhere (409)', () => {
+    signUp()
+    cy.createWishlistItem({ name: 'Primeira' }).then(itemId => {
+      cy.createWishlistItem({ name: 'Segunda' })
+      stubReminders(['Primeira', 'Segunda'])
+
+      visitHome()
+      reminderName().should('have.text', 'Primeira')
+      cy.apiRequest('POST', `/wishlist/items/${itemId}/give-up`).its('status').should('be.lessThan', 300)
+
+      cy.get('#wishlist-reminder-keep').click()
+      reminderName().should('have.text', 'Segunda')
+      cy.contains('Não foi possível registrar a resposta').should('not.exist')
+    })
   })
 })
