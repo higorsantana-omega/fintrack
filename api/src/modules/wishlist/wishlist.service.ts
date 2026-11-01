@@ -49,6 +49,16 @@ const HAS_PLANNED_DATE_MESSAGE =
 const CATEGORY_MESSAGE =
   'Wishlist items take an expense category that is not a system category.';
 
+/** The planned date as stored on the item, or null when it has none. */
+function toStoredPlannedDate(item: {
+  plannedMonth: Date | null;
+  plannedDay: Date | null;
+}): PlannedDate | null {
+  return item.plannedMonth
+    ? { plannedMonth: item.plannedMonth, plannedDay: item.plannedDay }
+    : null;
+}
+
 @Injectable()
 export class WishlistService {
   constructor(
@@ -126,7 +136,7 @@ export class WishlistService {
 
   async createItem(userId: string, saveWishlistItemDto: SaveWishlistItemDto) {
     const planned = this.getPlannedDate(saveWishlistItemDto);
-    const data = await this.toItemData(userId, saveWishlistItemDto);
+    const data = await this.toItemData(userId, saveWishlistItemDto, planned);
 
     const item = await this.wishlistRepository.createItem(userId, {
       ...data,
@@ -147,13 +157,11 @@ export class WishlistService {
       itemId,
     );
     const planned = this.getPlannedDate(saveWishlistItemDto);
-    const data = await this.toItemData(userId, saveWishlistItemDto);
-    const before: PlannedDate | null = item.plannedMonth
-      ? { plannedMonth: item.plannedMonth, plannedDay: item.plannedDay }
-      : null;
+    const data = await this.toItemData(userId, saveWishlistItemDto, planned);
 
     const shouldRecalculate =
-      item.status === 'ACTIVE' && hasPlannedDateChanged(before, planned);
+      item.status === 'ACTIVE' &&
+      hasPlannedDateChanged(toStoredPlannedDate(item), planned);
 
     const updated = await this.wishlistRepository.updateItem(itemId, {
       ...data,
@@ -204,11 +212,7 @@ export class WishlistService {
     itemId: string,
     purchaseWishlistItemDto: PurchaseWishlistItemDto,
   ) {
-    const item = await this.validateItemOwnershipService.validate(
-      userId,
-      itemId,
-    );
-    this.assertStatus(item.status, 'ACTIVE', NOT_ACTIVE_MESSAGE);
+    await this.validateActiveItem(userId, itemId);
 
     const paidDate = toCalendarDate(new Date(purchaseWishlistItemDto.paidDate));
     if (!isWithinDateWindow(paidDate, getToday())) {
@@ -225,11 +229,7 @@ export class WishlistService {
 
   /** The item leaves the active list; links and prices stay (R26). */
   async giveUp(userId: string, itemId: string) {
-    const item = await this.validateItemOwnershipService.validate(
-      userId,
-      itemId,
-    );
-    this.assertStatus(item.status, 'ACTIVE', NOT_ACTIVE_MESSAGE);
+    await this.validateActiveItem(userId, itemId);
 
     return this.transition(itemId, 'ACTIVE', NOT_ACTIVE_MESSAGE, {
       status: 'GAVE_UP',
@@ -245,23 +245,15 @@ export class WishlistService {
     );
     this.assertStatus(item.status, 'GAVE_UP', NOT_GAVE_UP_MESSAGE);
 
-    const planned: PlannedDate | null = item.plannedMonth
-      ? { plannedMonth: item.plannedMonth, plannedDay: item.plannedDay }
-      : null;
-
     return this.transition(itemId, 'GAVE_UP', NOT_GAVE_UP_MESSAGE, {
       status: 'ACTIVE',
-      nextReminder: getPlannedReminder(planned, getToday()),
+      nextReminder: getPlannedReminder(toStoredPlannedDate(item), getToday()),
     });
   }
 
   /** "Ainda quero": only for an item without a planned date (R18, R19). */
   async keep(userId: string, itemId: string) {
-    const item = await this.validateItemOwnershipService.validate(
-      userId,
-      itemId,
-    );
-    this.assertStatus(item.status, 'ACTIVE', NOT_ACTIVE_MESSAGE);
+    const item = await this.validateActiveItem(userId, itemId);
     if (item.plannedMonth) {
       throw new BadRequestException(HAS_PLANNED_DATE_MESSAGE);
     }
@@ -277,11 +269,7 @@ export class WishlistService {
     itemId: string,
     { plannedMonth, plannedDay }: PostponeWishlistItemDto,
   ) {
-    const item = await this.validateItemOwnershipService.validate(
-      userId,
-      itemId,
-    );
-    this.assertStatus(item.status, 'ACTIVE', NOT_ACTIVE_MESSAGE);
+    await this.validateActiveItem(userId, itemId);
 
     const planned = toPlannedDate(plannedMonth, plannedDay);
 
@@ -360,6 +348,17 @@ export class WishlistService {
 
   // Helpers --------------------------------------------------------------
 
+  /** Ownership first, then the origin status (KTD8). */
+  private async validateActiveItem(userId: string, itemId: string) {
+    const item = await this.validateItemOwnershipService.validate(
+      userId,
+      itemId,
+    );
+    this.assertStatus(item.status, 'ACTIVE', NOT_ACTIVE_MESSAGE);
+
+    return item;
+  }
+
   private assertStatus(
     status: WishlistItemStatus,
     expected: WishlistItemStatus,
@@ -424,7 +423,11 @@ export class WishlistService {
   }
 
   /** Validates the list and the category, and maps the body to stored fields. */
-  private async toItemData(userId: string, dto: SaveWishlistItemDto) {
+  private async toItemData(
+    userId: string,
+    dto: SaveWishlistItemDto,
+    planned: PlannedDate | null,
+  ) {
     const wishlistId = dto.wishlistId
       ? (
           await this.validateListOwnershipService.validate(
@@ -434,7 +437,6 @@ export class WishlistService {
         ).id
       : (await this.getGeneralList(userId)).id;
     await this.validateCategory(userId, dto.categoryId);
-    const planned = this.getPlannedDate(dto);
 
     return {
       wishlistId,

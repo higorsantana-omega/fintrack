@@ -7,7 +7,7 @@ import {
 import { currencyStringToNumber } from './currencyStringToNumber'
 import { MONTH_PATTERN, integerBetween } from './debtForm'
 import { positiveCurrency } from './goalForm'
-import { getMonthKey, toGoalsCalendarDate } from './goalPlanning'
+import { formatMonthKey, getMonthKey, toGoalsCalendarDate } from './goalPlanning'
 
 const DAY_MESSAGE = 'Informe um dia entre 1 e 31'
 
@@ -111,7 +111,5 @@ export function getPostponeSuggestion(plannedMonth: string | null, today: Date) 
     laterKey = Math.max(currentKey, year * 12 + month - 1)
   }
 
-  const nextKey = laterKey + 1
-
-  return `${Math.floor(nextKey / 12)}-${String((nextKey % 12) + 1).padStart(2, '0')}`
+  return formatMonthKey(laterKey + 1)
 }

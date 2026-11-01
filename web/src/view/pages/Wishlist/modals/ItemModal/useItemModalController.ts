@@ -3,7 +3,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { WishlistItem, WishlistList } from '../../../../../app/entities/Wishlist'
+import { GENERAL_WISHLIST_KEY, WishlistItem, WishlistList } from '../../../../../app/entities/Wishlist'
 import { useCategories } from '../../../../../app/hooks/useCategories'
 import { wishlistService } from '../../../../../app/services/wishlistService'
 import { getCategoryOptions } from '../../../../../app/utils/categories'
@@ -35,7 +35,7 @@ export function useItemModalController(
     resolver: zodResolver(wishlistItemFormSchema),
     defaultValues: {
       name: item?.name ?? '',
-      wishlistId: item?.wishlistId ?? defaultListId ?? lists.find(list => list.key === 'general')?.id ?? '',
+      wishlistId: item?.wishlistId ?? defaultListId ?? lists.find(list => list.key === GENERAL_WISHLIST_KEY)?.id ?? '',
       categoryId: item?.category?.id ?? '',
       plannedMonth: item?.plannedMonth ?? '',
       plannedDay: item?.plannedDay ?? ''

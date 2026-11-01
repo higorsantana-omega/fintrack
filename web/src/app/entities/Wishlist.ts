@@ -1,9 +1,12 @@
 export type WishlistItemStatus = 'ACTIVE' | 'PURCHASED' | 'GAVE_UP'
 
+/** Key of the Geral list, which cannot be deleted (mirrors the API constant). */
+export const GENERAL_WISHLIST_KEY = 'general'
+
 export interface WishlistList {
   id: string
   name: string
-  /** 'general' marks the Geral list, which cannot be deleted. */
+  /** `GENERAL_WISHLIST_KEY` marks the Geral list. */
   key: string | null
 }
 

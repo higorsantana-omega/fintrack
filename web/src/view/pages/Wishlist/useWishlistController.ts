@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
+  GENERAL_WISHLIST_KEY,
   WishlistItem,
   WishlistItemStatus,
   WishlistLink,
@@ -44,7 +45,7 @@ export function useWishlistController() {
   const [deleteTarget, setDeleteTarget] = useState<WishlistDeleteTarget | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
-  const generalList = lists.find(list => list.key === 'general')
+  const generalList = lists.find(list => list.key === GENERAL_WISHLIST_KEY)
   // A list that no longer exists reads as Todas.
   const listId = lists.some(list => list.id === selectedListId) ? selectedListId : ALL_LISTS
   const visibleItems = getVisibleItems(items, listId, status)

@@ -1,5 +1,5 @@
 import { DotsHorizontalIcon, PlusIcon } from '@radix-ui/react-icons'
-import { WishlistItemStatus, WishlistList } from '../../../../app/entities/Wishlist'
+import { GENERAL_WISHLIST_KEY, WishlistItemStatus, WishlistList } from '../../../../app/entities/Wishlist'
 import { cn } from '../../../../app/utils/cn'
 import { Button } from '../../../components/Button'
 import { DropdownMenu } from '../../../components/DropdownMenu'
@@ -109,7 +109,7 @@ export function ListsColumn({
 
               <DropdownMenu.Content>
                 <DropdownMenu.Item onSelect={() => afterMenuClose(() => onRename(list))}>Renomear</DropdownMenu.Item>
-                {list.key !== 'general' && (
+                {list.key !== GENERAL_WISHLIST_KEY && (
                   <DropdownMenu.Item className='text-red-900' onSelect={() => afterMenuClose(() => onDelete(list))}>Excluir</DropdownMenu.Item>
                 )}
               </DropdownMenu.Content>
