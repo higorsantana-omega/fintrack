@@ -13,6 +13,10 @@ import {
   buildDefaultCategories,
 } from '../src/modules/categories/categories.constants';
 import {
+  GENERAL_WISHLIST_KEY,
+  GENERAL_WISHLIST_NAME,
+} from '../src/modules/wishlist/wishlist.constants';
+import {
   getDayInMonth,
   getMonthKey,
   getMonthStart,
@@ -46,6 +50,9 @@ async function main() {
       email: SEED_EMAIL,
       password: await hash(SEED_PASSWORD, 12),
       categories: { createMany: { data: buildDefaultCategories() } },
+      wishlists: {
+        create: { key: GENERAL_WISHLIST_KEY, name: GENERAL_WISHLIST_NAME },
+      },
     },
   });
   const userId = user.id;
