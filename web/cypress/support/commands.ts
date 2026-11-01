@@ -25,6 +25,10 @@ declare namespace Cypress {
     payDebt(debtId: string, params: object): Chainable<string>
     createBorrower(params: object): Chainable<string>
     createBorrowerMovement(borrowerId: string, params: object): Chainable<string>
+    createWishlistList(name: string): Chainable<string>
+    createWishlistItem(params: object): Chainable<string>
+    createWishlistLink(itemId: string, params: object): Chainable<string>
+    addWishlistPrice(linkId: string, value: number): Chainable<string>
   }
 }
 
@@ -112,6 +116,34 @@ Cypress.Commands.add('createBorrower', params => {
 
 Cypress.Commands.add('createBorrowerMovement', (borrowerId, params) => {
   return cy.apiRequest('POST', `/borrowers/${borrowerId}/movements`, params).then(response => {
+    expect(response.status).to.eq(201)
+    return response.body.id
+  })
+})
+
+Cypress.Commands.add('createWishlistList', name => {
+  return cy.apiRequest('POST', '/wishlist/lists', { name }).then(response => {
+    expect(response.status).to.eq(201)
+    return response.body.id
+  })
+})
+
+Cypress.Commands.add('createWishlistItem', params => {
+  return cy.apiRequest('POST', '/wishlist/items', params).then(response => {
+    expect(response.status).to.eq(201)
+    return response.body.id
+  })
+})
+
+Cypress.Commands.add('createWishlistLink', (itemId, params) => {
+  return cy.apiRequest('POST', `/wishlist/items/${itemId}/links`, params).then(response => {
+    expect(response.status).to.eq(201)
+    return response.body.id
+  })
+})
+
+Cypress.Commands.add('addWishlistPrice', (linkId, value) => {
+  return cy.apiRequest('POST', `/wishlist/links/${linkId}/prices`, { value }).then(response => {
     expect(response.status).to.eq(201)
     return response.body.id
   })

@@ -2,6 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { UsersRepository } from 'src/database/repositories/users.repositories';
+import {
+  GENERAL_WISHLIST_KEY,
+  GENERAL_WISHLIST_NAME,
+} from '../wishlist/wishlist.constants';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -98,5 +102,19 @@ describe('AuthService', () => {
         .filter((row: { parentId?: string }) => row.parentId === food.id)
         .map((row: { key: string }) => row.key),
     ).toEqual(['delivery', 'supermarket', 'restaurants']);
+  });
+
+  it('creates only the Geral wishlist on signup', async () => {
+    await service.signup({
+      name: 'Ana',
+      email: 'ana@example.com',
+      password: '12345678',
+    });
+
+    const [{ data }] = usersRepository.create.mock.calls[0];
+    expect(data.wishlists.create).toEqual({
+      key: GENERAL_WISHLIST_KEY,
+      name: GENERAL_WISHLIST_NAME,
+    });
   });
 });

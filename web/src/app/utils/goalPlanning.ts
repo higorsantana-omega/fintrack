@@ -29,7 +29,7 @@ export function getMonthKey(calendarDate: Date) {
   return calendarDate.getUTCFullYear() * 12 + calendarDate.getUTCMonth()
 }
 
-function formatMonthKey(monthKey: number) {
+export function formatMonthKey(monthKey: number) {
   const year = Math.floor(monthKey / 12)
   const month = (monthKey % 12) + 1
 

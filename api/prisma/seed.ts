@@ -1,10 +1,13 @@
 // Development-only seed: one user with data for every feature of the app.
 // Run with `npm run seed`; it recreates the user, so it is safe to re-run.
 import 'dotenv/config';
-import { PrismaClient, TransactionType } from '@prisma/client';
+import { Prisma, PrismaClient, TransactionType } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { getNewInstallmentRows } from '../src/modules/debts/debt-calculations';
-import { getInstallments } from '../src/modules/cards/card-calculations';
+import {
+  addDays,
+  getInstallments,
+} from '../src/modules/cards/card-calculations';
 import {
   CARD_PAYMENT_CATEGORY_KEY,
   DEBT_CATEGORY_KEY,
@@ -13,6 +16,16 @@ import {
   buildDefaultCategories,
 } from '../src/modules/categories/categories.constants';
 import {
+  GENERAL_WISHLIST_KEY,
+  GENERAL_WISHLIST_NAME,
+} from '../src/modules/wishlist/wishlist.constants';
+import {
+  getPlannedReminder,
+  getStillWantedReminder,
+  toPlannedDate,
+} from '../src/modules/wishlist/wishlist-calculations';
+import {
+  formatMonthKey,
   getDayInMonth,
   getMonthKey,
   getMonthStart,
@@ -46,6 +59,9 @@ async function main() {
       email: SEED_EMAIL,
       password: await hash(SEED_PASSWORD, 12),
       categories: { createMany: { data: buildDefaultCategories() } },
+      wishlists: {
+        create: { key: GENERAL_WISHLIST_KEY, name: GENERAL_WISHLIST_NAME },
+      },
     },
   });
   const userId = user.id;
@@ -371,6 +387,142 @@ async function main() {
       type,
     })),
   });
+
+  // Wishlist ---------------------------------------------------------------------
+  const general = await prisma.wishlist.findFirstOrThrow({
+    where: { userId, key: GENERAL_WISHLIST_KEY },
+  });
+  const newHome = await prisma.wishlist.create({
+    data: { userId, name: 'Casa nova' },
+  });
+
+  const nextMonth = toPlannedDate(formatMonthKey(thisMonth + 1), 18);
+  const inTwoMonths = toPlannedDate(formatMonthKey(thisMonth + 2));
+  const daysAgo = (days: number) => addDays(today, -days);
+
+  const makeWishlistItem = (
+    wishlistId: string,
+    name: string,
+    categoryKey: string,
+    extra: Partial<Prisma.WishlistItemUncheckedCreateInput>,
+  ) =>
+    prisma.wishlistItem.create({
+      data: {
+        userId,
+        wishlistId,
+        categoryId: cat(categoryKey),
+        name,
+        ...extra,
+      },
+    });
+  const addLink = async (
+    itemId: string,
+    storeName: string,
+    url: string,
+    prices: [number, number][], // [value, days ago]
+  ) => {
+    const link = await prisma.wishlistLink.create({
+      data: { itemId, storeName, url },
+    });
+    await prisma.wishlistPrice.createMany({
+      data: prices.map(([value, ago]) => ({
+        linkId: link.id,
+        value,
+        recordedOn: daysAgo(ago),
+      })),
+    });
+  };
+
+  // Planned day next month: the reminder is that day.
+  const sofa = await makeWishlistItem(newHome.id, 'Sofá retrátil', 'housing', {
+    plannedMonth: nextMonth.plannedMonth,
+    plannedDay: nextMonth.plannedDay,
+    nextReminder: getPlannedReminder(nextMonth, today),
+  });
+  await addLink(sofa.id, 'Mobly', 'https://www.mobly.com.br/sofa-retratil', [
+    [2899.9, 40],
+    [2749.9, 20],
+    [2599.9, 3],
+  ]);
+  await addLink(sofa.id, 'Magalu', 'https://www.magazineluiza.com.br/sofa', [
+    [2999, 30],
+    [2949, 5],
+  ]);
+
+  // Only a month, two months ahead: the reminder is the first day of it.
+  const fridge = await makeWishlistItem(
+    newHome.id,
+    'Geladeira frost free',
+    'electronics',
+    {
+      plannedMonth: inTwoMonths.plannedMonth,
+      nextReminder: getPlannedReminder(inTwoMonths, today),
+    },
+  );
+  await addLink(
+    fridge.id,
+    'Casas Bahia',
+    'https://www.casasbahia.com.br/geladeira',
+    [
+      [3799, 25],
+      [3649, 10],
+      [3699, 2],
+    ],
+  );
+  await addLink(fridge.id, 'Amazon', 'https://www.amazon.com.br/geladeira', [
+    [3590, 15],
+    [3590, 1],
+  ]);
+
+  // No date, created 30 days ago: its reminder is today, so the "Lembrete de
+  // compra" window shows on login. Written directly, bypassing the API rules.
+  const headphones = await makeWishlistItem(
+    general.id,
+    'Fone de ouvido com cancelamento de ruído',
+    'electronics',
+    { createdAt: daysAgo(30), nextReminder: today },
+  );
+  await addLink(
+    headphones.id,
+    'Amazon',
+    'https://www.amazon.com.br/fone-cancelamento-ruido',
+    [[1290, 12]],
+  );
+
+  // No date, created today: the reminder is 30 days away.
+  await makeWishlistItem(general.id, 'Mochila para viagem', 'clothing', {
+    nextReminder: getStillWantedReminder(today),
+  });
+
+  const lamp = await makeWishlistItem(
+    newHome.id,
+    'Luminária de mesa',
+    'housing',
+    {
+      status: 'PURCHASED',
+      paidValue: 189.9,
+      paidDate: daysAgo(14),
+      nextReminder: null,
+    },
+  );
+  await addLink(lamp.id, 'Mobly', 'https://www.mobly.com.br/luminaria', [
+    [219.9, 30],
+    [189.9, 15],
+  ]);
+
+  const videogame = await makeWishlistItem(
+    general.id,
+    'Videogame',
+    'electronics',
+    {
+      status: 'GAVE_UP',
+      nextReminder: null,
+    },
+  );
+  await addLink(videogame.id, 'Kabum', 'https://www.kabum.com.br/videogame', [
+    [4399, 45],
+    [4599, 20],
+  ]);
 
   console.log(`Seed done. Login: ${SEED_EMAIL} / ${SEED_PASSWORD}`);
 }

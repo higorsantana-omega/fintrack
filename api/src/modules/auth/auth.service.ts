@@ -9,6 +9,10 @@ import { compare, hash } from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { SignupDto } from './dto/signup.dto';
 import { buildDefaultCategories } from '../categories/categories.constants';
+import {
+  GENERAL_WISHLIST_KEY,
+  GENERAL_WISHLIST_NAME,
+} from '../wishlist/wishlist.constants';
 
 @Injectable()
 export class AuthService {
@@ -47,6 +51,9 @@ export class AuthService {
         password: hashedPassword,
         categories: {
           createMany: { data: buildDefaultCategories() },
+        },
+        wishlists: {
+          create: { key: GENERAL_WISHLIST_KEY, name: GENERAL_WISHLIST_NAME },
         },
       },
     });
