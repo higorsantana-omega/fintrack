@@ -90,6 +90,7 @@ function PurchaseLaunchFlow({ item, onFinish }: PurchaseLaunchFlowProps) {
     : undefined
   const initialValues = {
     name: item.name,
+    description: item.name,
     value: item.lowestPrice ? formatInitialValue(item.lowestPrice.value) : '',
     categoryId,
     date: new Date()
