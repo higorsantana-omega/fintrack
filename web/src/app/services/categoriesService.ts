@@ -28,16 +28,31 @@ export interface CategorySummaryItem {
   isRefund: boolean
 }
 
+export type BudgetStatus = 'OK' | 'WARNING' | 'OVER'
+
+/** The month's limit of a category, already computed by the API. */
+export interface CategoryBudget {
+  limit: number
+  /** Whether the limit is the month's own override of the general one. */
+  isAdjusted: boolean
+  /** Negative past the limit. */
+  remaining: number
+  status: BudgetStatus
+}
+
 export interface CategorySummary {
   month: string
   type: Category['type']
   net: number
+  /** Sum of the month's limits minus what they cover; null when no category has a limit. */
+  balance: number | null
   categories: {
     id: string
     parentId: string | null
     direct: number
     total: number
     share: number
+    budget: CategoryBudget | null
   }[]
   noCategory: { total: number, share: number }
   items: CategorySummaryItem[]
@@ -69,6 +84,22 @@ export interface DeleteCategoryParams {
   destinationCategoryId?: string
 }
 
+export interface SetBudgetParams {
+  categoryId: string
+  amount: number
+  /** `YYYY-MM`: sets the override of that month only; without it, the general limit. */
+  month?: string
+}
+
+export interface RemoveBudgetParams {
+  categoryId: string
+  /** `YYYY-MM`: removes the override of that month only; without it, the limit and all its overrides. */
+  month?: string
+}
+
+const budgetPath = (categoryId: string, month?: string) =>
+  `/categories/${categoryId}/budget${month ? `/${month}` : ''}`
+
 export async function getAll() {
   const { data } = await httpClient.get<Category[]>('/categories')
   return data
@@ -94,10 +125,22 @@ export async function remove({ id, destinationCategoryId }: DeleteCategoryParams
   return data
 }
 
+export async function setBudget({ categoryId, amount, month }: SetBudgetParams) {
+  const { data } = await httpClient.put(budgetPath(categoryId, month), { amount })
+  return data
+}
+
+export async function removeBudget({ categoryId, month }: RemoveBudgetParams) {
+  const { data } = await httpClient.delete(budgetPath(categoryId, month))
+  return data
+}
+
 export const categoriesService = {
   getAll,
   getSummary,
   create,
   update,
-  remove
+  remove,
+  setBudget,
+  removeBudget
 }

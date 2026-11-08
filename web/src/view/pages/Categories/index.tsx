@@ -6,6 +6,7 @@ import { CategoriesDonut } from './components/CategoriesDonut'
 import { CategoriesSkeleton } from './components/CategoriesSkeleton'
 import { CategoryTree } from './components/CategoryTree'
 import { MonthNavigator } from './components/MonthNavigator'
+import { CategoryBudgetModal } from './modals/CategoryBudgetModal'
 import { CategoryFormModal } from './modals/CategoryFormModal'
 import { CategoryItemsModal } from './modals/CategoryItemsModal'
 import { DeleteCategoryModal } from './modals/DeleteCategoryModal'
@@ -83,7 +84,7 @@ export function Categories() {
             enterTo='opacity-100'
             className='grid grid-cols-1 lg:grid-cols-[18rem_1fr] gap-6 items-start'
           >
-            <CategoriesDonut slices={slices} net={summary.net} />
+            <CategoriesDonut slices={slices} net={summary.net} balance={summary.balance} />
 
             <div className='space-y-4 min-w-0'>
               <CategoryTree
@@ -96,6 +97,7 @@ export function Categories() {
                 onCreateSubcategory={parent => openModal({ kind: 'createSubcategory', parent })}
                 onEdit={category => openModal({ kind: 'edit', category })}
                 onDelete={category => openModal({ kind: 'delete', category })}
+                onBudget={(category, budget) => openModal({ kind: 'budget', category, budget })}
               />
 
               <p id='categories-notice' className='text-xs text-gray-600'>
@@ -123,6 +125,9 @@ export function Categories() {
       )}
       {modal?.kind === 'edit' && (
         <CategoryFormModal target={modal} categories={categories} onClose={closeModal} />
+      )}
+      {modal?.kind === 'budget' && (
+        <CategoryBudgetModal category={modal.category} budget={modal.budget} month={month} onClose={closeModal} />
       )}
       {modal?.kind === 'delete' && (
         <DeleteCategoryModal category={modal.category} categories={categories} onClose={closeModal} />

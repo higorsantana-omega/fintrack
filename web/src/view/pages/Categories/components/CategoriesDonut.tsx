@@ -1,6 +1,7 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { Category } from '../../../../app/services/categoriesService'
 import { getCategoryName } from '../../../../app/utils/categories'
+import { cn } from '../../../../app/utils/cn'
 import { formatCurrency } from '../../../../app/utils/formatCurrency'
 import { GOAL_CHART_TOOLTIP } from '../../../constants/GoalConstants'
 import { SEM_CATEGORIA_LABEL } from '../../../constants/CategoryConstants'
@@ -19,9 +20,11 @@ interface Slice {
 interface CategoriesDonutProps {
   slices: Slice[]
   net: number
+  /** Null when no category has a limit: the center then shows the total only. */
+  balance: number | null
 }
 
-export function CategoriesDonut({ slices, net }: CategoriesDonutProps) {
+export function CategoriesDonut({ slices, net, balance }: CategoriesDonutProps) {
   const isEmpty = slices.length === 0
   const data = isEmpty
     ? [{ id: 'empty', name: '', total: 1, fill: EMPTY_COLOR }]
@@ -62,8 +65,24 @@ export function CategoriesDonut({ slices, net }: CategoriesDonutProps) {
       </ResponsiveContainer>
 
       <div className='absolute inset-0 flex flex-col items-center justify-center pointer-events-none'>
-        <span className='text-xs text-gray-600'>Total do mês</span>
-        <strong id='categories-net' className='text-gray-800 tracking-[-1px] text-xl'>{formatCurrency(net)}</strong>
+        {balance !== null && (
+          <>
+            <span className='text-xs text-gray-600'>Saldo do mês</span>
+            <strong
+              id='categories-balance'
+              className={cn('tracking-[-1px] text-xl', balance < 0 ? 'text-red-900' : 'text-gray-800')}
+            >
+              {formatCurrency(balance)}
+            </strong>
+          </>
+        )}
+        <span className={cn('text-gray-600', balance === null ? 'text-xs' : 'text-[11px] mt-1')}>Total do mês</span>
+        <strong
+          id='categories-net'
+          className={cn('text-gray-800 tracking-[-1px]', balance === null ? 'text-xl' : 'text-sm')}
+        >
+          {formatCurrency(net)}
+        </strong>
       </div>
     </div>
   )
