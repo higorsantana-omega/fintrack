@@ -22,6 +22,7 @@ import {
   SYSTEM_KEYS_OUT_OF_TOTALS,
   countsInTab,
   getCategoryMonthTotals,
+  getMonthBudgets,
   getMonthCardItems,
 } from './categories-calculations';
 import { SYSTEM_CATEGORY_KEYS } from './categories.constants';
@@ -81,7 +82,7 @@ export class CategoriesService {
       userId,
       today,
     );
-    const [categories, cards, transactions] = await Promise.all([
+    const [categories, cards, transactions, budgets] = await Promise.all([
       this.categoriesRepository.findMany(userId),
       this.creditCardsRepository.findManyByUserId(userId),
       this.transactionsRepository.findManyForSummary(
@@ -89,6 +90,7 @@ export class CategoriesService {
         getMonthStart(monthKey),
         getMonthStart(monthKey + 1),
       ),
+      this.categoriesRepository.findBudgets(userId, getMonthStart(monthKey)),
     ]);
 
     const treeIds = new Set(
@@ -146,16 +148,37 @@ export class CategoriesService {
 
     const items = [...accountItems, ...cardItems];
     const totals = getCategoryMonthTotals(categories, items, type);
+    const monthBudgets = getMonthBudgets(
+      totals.categories,
+      budgets.map(({ categoryId, amount, months }) => ({
+        categoryId,
+        amount,
+        monthAmount: months[0]?.amount ?? null,
+      })),
+    );
 
     return {
       month,
       type,
       net: fromCents(totals.net),
-      categories: totals.categories.map(({ direct, total, ...rest }) => ({
-        ...rest,
-        direct: fromCents(direct),
-        total: fromCents(total),
-      })),
+      balance:
+        monthBudgets.balance === null ? null : fromCents(monthBudgets.balance),
+      categories: totals.categories.map(({ direct, total, ...rest }) => {
+        const budget = monthBudgets.byCategory.get(rest.id);
+
+        return {
+          ...rest,
+          direct: fromCents(direct),
+          total: fromCents(total),
+          budget: budget
+            ? {
+                ...budget,
+                limit: fromCents(budget.limit),
+                remaining: fromCents(budget.remaining),
+              }
+            : null,
+        };
+      }),
       noCategory: {
         total: fromCents(totals.noCategory.total),
         share: totals.noCategory.share,

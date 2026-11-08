@@ -11,7 +11,7 @@ import { CreditCardsRepository } from 'src/database/repositories/credit-cards.re
 import { TransactionsRepository } from 'src/database/repositories/transactions.repositories';
 import { ParseMonthPipe } from 'src/pipes/ParseMonthPipe';
 import { getInvoiceMonth } from '../cards/card-calculations';
-import { formatMonthKey } from 'src/shared/calendar';
+import { formatMonthKey, parseMonthKey } from 'src/shared/calendar';
 import { CategoriesService } from './categories.service';
 import { CategoryBudgetDto } from './dto/category-budget.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -826,6 +826,102 @@ describe('CategoriesService', () => {
 
       expect(summary.items).toEqual([]);
       expect(summary.net).toBe(0);
+    });
+
+    describe('budgets (KTD5)', () => {
+      const summaryOf = async (
+        m = month,
+        type: 'EXPENSE' | 'INCOME' = 'EXPENSE',
+      ) => service.getSummary(ANA, m, type);
+      const budgetOf = (summary: any, id: string) =>
+        summary.categories.find((c: any) => c.id === id).budget;
+
+      it('AE1: brings each limit in reais with what is left, and null without one', async () => {
+        accountTransactions.push(
+          transaction({
+            value: 600,
+            categoryId: 'delivery',
+            category: { key: 'delivery' },
+          }),
+          transaction({ value: 400, categoryId: 'food' }),
+        );
+        await service.setBudget(ANA, 'food', 1500);
+        await service.setBudget(ANA, 'delivery', 800);
+
+        const summary = await summaryOf();
+
+        expect(budgetOf(summary, 'delivery')).toEqual({
+          limit: 800,
+          isAdjusted: false,
+          remaining: 200,
+          status: 'OK',
+        });
+        expect(budgetOf(summary, 'food')).toMatchObject({
+          limit: 1500,
+          remaining: 500,
+        });
+        expect(budgetOf(summary, 'shopping')).toBeNull();
+      });
+
+      it('AE2: the override of a month shows only in that month, and removing it restores the limit', async () => {
+        await service.setBudget(ANA, 'shopping', 200);
+        const next = formatMonthKey(parseMonthKey(month) + 1);
+        await service.setMonthBudget(ANA, 'shopping', next, 600);
+
+        expect(budgetOf(await summaryOf(next), 'shopping')).toMatchObject({
+          limit: 600,
+          isAdjusted: true,
+        });
+        expect(budgetOf(await summaryOf(), 'shopping')).toMatchObject({
+          limit: 200,
+          isAdjusted: false,
+        });
+
+        await service.removeMonthBudget(ANA, 'shopping', next);
+
+        expect(budgetOf(await summaryOf(next), 'shopping')).toMatchObject({
+          limit: 200,
+          isAdjusted: false,
+        });
+      });
+
+      it('AE4: the balance counts the group limit, or else the subcategory limits', async () => {
+        accountTransactions.push(
+          transaction({ value: 1000, categoryId: 'food' }),
+          transaction({
+            value: 40,
+            categoryId: 'entertainment',
+            category: { key: 'entertainment' },
+          }),
+        );
+        await service.setBudget(ANA, 'food', 1500);
+        await service.setBudget(ANA, 'entertainment', 100);
+
+        expect((await summaryOf()).balance).toBe(560);
+      });
+
+      it('has no limits and a null balance on the INCOME tab, and without any limit', async () => {
+        await service.setBudget(ANA, 'food', 1500);
+
+        const income = await summaryOf(month, 'INCOME');
+
+        expect(income.balance).toBeNull();
+        expect(income.categories.every((c: any) => c.budget === null)).toBe(
+          true,
+        );
+        expect((await summaryOf()).balance).not.toBeNull();
+
+        await service.removeBudget(ANA, 'food');
+        expect((await summaryOf()).balance).toBeNull();
+      });
+
+      it("does not show another user's limits", async () => {
+        budgets.push({ id: 'b', categoryId: 'bia-group', amount: 100 });
+
+        const summary = await summaryOf();
+
+        expect(summary.balance).toBeNull();
+      });
     });
 
     it('returns 400 for a month more than 120 months away', async () => {
