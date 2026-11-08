@@ -37,7 +37,7 @@ export type AccountTransactionLinks = {
 
 // Account transactions (KTD5) --------------------------------------------------
 
-const SYSTEM_KEYS_OUT_OF_TOTALS = [
+export const SYSTEM_KEYS_OUT_OF_TOTALS = [
   CARD_PAYMENT_CATEGORY_KEY,
   GOAL_CATEGORY_KEY,
   LOAN_CATEGORY_KEY,
@@ -235,5 +235,77 @@ export function getCategoryMonthTotals(
     })),
     noCategory: { total: noCategory, share: share(noCategory) },
     net: items.reduce((sum, { cents }) => sum + cents, 0),
+  };
+}
+
+// Budgets (KTD4) ---------------------------------------------------------------
+
+export type BudgetStatus = 'OK' | 'WARNING' | 'OVER';
+
+/** A category's limit in reais, with the month's override or null. */
+export type CategoryBudgetInput = {
+  categoryId: string;
+  amount: number;
+  monthAmount: number | null;
+};
+
+/** All amounts in cents; `remaining` is negative past the limit. */
+export type CategoryBudgetResult = {
+  limit: number;
+  isAdjusted: boolean;
+  remaining: number;
+  status: BudgetStatus;
+};
+
+export type MonthBudgets = {
+  byCategory: Map<string, CategoryBudgetResult>;
+  /** Null when no category of the tab has a limit. */
+  balance: number | null;
+};
+
+/**
+ * The month's limit, what is left and the bar status of each category with a
+ * limit, and the balance (R11): a group counts once, by its own limit or else
+ * by the limits of its subcategories. 100% of the limit is still WARNING.
+ */
+export function getMonthBudgets(
+  totals: CategoryMonthTotal[],
+  budgets: CategoryBudgetInput[],
+): MonthBudgets {
+  const budgetOf = new Map(
+    budgets.map((budget) => [budget.categoryId, budget]),
+  );
+  const byCategory = new Map<string, CategoryBudgetResult>();
+
+  totals.forEach(({ id, total }) => {
+    const budget = budgetOf.get(id);
+    if (!budget) return;
+
+    const isAdjusted = budget.monthAmount !== null;
+    const limit = toCents(isAdjusted ? budget.monthAmount : budget.amount);
+    const status: BudgetStatus =
+      total > limit ? 'OVER' : total * 5 > limit * 4 ? 'WARNING' : 'OK';
+
+    byCategory.set(id, { limit, isAdjusted, remaining: limit - total, status });
+  });
+
+  const remainingOf = (id: string) => byCategory.get(id)?.remaining;
+  const groupRemainings = totals
+    .filter(({ parentId }) => parentId === null)
+    .map(({ id }) =>
+      remainingOf(id) !== undefined
+        ? [remainingOf(id)]
+        : totals
+            .filter(({ parentId }) => parentId === id)
+            .map((sub) => remainingOf(sub.id))
+            .filter((remaining) => remaining !== undefined),
+    )
+    .flat();
+
+  return {
+    byCategory,
+    balance: groupRemainings.length
+      ? groupRemainings.reduce((sum, remaining) => sum + remaining, 0)
+      : null,
   };
 }

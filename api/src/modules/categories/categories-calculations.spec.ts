@@ -4,6 +4,7 @@ import {
   MonthCard,
   countsInTab,
   getCategoryMonthTotals,
+  getMonthBudgets,
   getMonthCardItems,
 } from './categories-calculations';
 
@@ -295,5 +296,112 @@ describe('getCategoryMonthTotals (KTD4)', () => {
       noCategory: { total: 0, share: 0 },
     });
     expect(result.categories[0]).toMatchObject({ total: 0, share: 0 });
+  });
+});
+
+describe('getMonthBudgets (KTD4)', () => {
+  const nodes: CategoryNode[] = [
+    { id: 'food', type: 'EXPENSE', key: 'food', parentId: null },
+    { id: 'market', type: 'EXPENSE', key: null, parentId: 'food' },
+    { id: 'restaurants', type: 'EXPENSE', key: null, parentId: 'food' },
+    { id: 'fun', type: 'EXPENSE', key: 'fun', parentId: null },
+    { id: 'tickets', type: 'EXPENSE', key: null, parentId: 'fun' },
+    { id: 'gifts', type: 'EXPENSE', key: 'gifts', parentId: null },
+  ];
+  // Amounts in reais, as the database holds them.
+  const budget = (categoryId: string, amount: number, monthAmount = null) => ({
+    categoryId,
+    amount,
+    monthAmount,
+  });
+  const run = (
+    spent: Record<string, number>,
+    budgets: ReturnType<typeof budget>[],
+  ) =>
+    getMonthBudgets(
+      getCategoryMonthTotals(
+        nodes,
+        Object.entries(spent).map(([categoryId, reais]) => ({
+          categoryId,
+          cents: reais * 100,
+        })),
+        'EXPENSE',
+      ).categories,
+      budgets,
+    );
+
+  it('AE1: each limit stands alone, and the group counts its subcategories', () => {
+    const { byCategory } = run({ market: 600, restaurants: 400 }, [
+      budget('food', 1500),
+      budget('market', 800),
+    ]);
+
+    expect(byCategory.get('market')).toMatchObject({
+      limit: 80000,
+      remaining: 20000,
+    });
+    expect(byCategory.get('food')).toMatchObject({
+      limit: 150000,
+      remaining: 50000,
+    });
+  });
+
+  it('AE2: the month override replaces the general limit and is marked', () => {
+    const budgets = [budget('gifts', 200, 600)];
+
+    expect(run({}, budgets).byCategory.get('gifts')).toMatchObject({
+      limit: 60000,
+      isAdjusted: true,
+    });
+    expect(
+      run({}, [budget('gifts', 200)]).byCategory.get('gifts'),
+    ).toMatchObject({ limit: 20000, isAdjusted: false });
+  });
+
+  it('AE3: OK up to 80%, WARNING above it, OVER past the limit', () => {
+    const status = (reais: number) =>
+      run({ gifts: reais }, [budget('gifts', 500)]).byCategory.get('gifts');
+
+    expect(status(350)?.status).toBe('OK');
+    expect(status(400)?.status).toBe('OK');
+    expect(status(420)?.status).toBe('WARNING');
+    expect(status(530)).toMatchObject({ status: 'OVER', remaining: -3000 });
+  });
+
+  it('spending 100% of the limit is still WARNING, with nothing left', () => {
+    expect(
+      run({ gifts: 500 }, [budget('gifts', 500)]).byCategory.get('gifts'),
+    ).toMatchObject({ status: 'WARNING', remaining: 0 });
+  });
+
+  it('AE4: the balance takes the group limit, or else its subcategories limits', () => {
+    const { balance } = run({ market: 600, restaurants: 400, tickets: 40 }, [
+      budget('food', 1500),
+      budget('tickets', 100),
+    ]);
+
+    expect(balance).toBe(56000);
+  });
+
+  it('counts a group once in the balance when it and a subcategory have limits', () => {
+    const { balance } = run({ market: 600, restaurants: 400 }, [
+      budget('food', 1500),
+      budget('market', 800),
+    ]);
+
+    expect(balance).toBe(50000);
+  });
+
+  it('gives no limit object without a limit, and a null balance without any', () => {
+    const { byCategory, balance } = run({ market: 100 }, []);
+
+    expect(byCategory.size).toBe(0);
+    expect(balance).toBeNull();
+  });
+
+  it('a refund keeps the status OK and leaves more than the limit', () => {
+    expect(
+      run({ gifts: -50 }, [budget('gifts', 500)]).byCategory.get('gifts'),
+    ).toMatchObject({ status: 'OK', remaining: 55000 });
   });
 });
