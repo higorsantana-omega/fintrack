@@ -11,17 +11,19 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(uuid()) @db.Uuid
-  name         String
-  email        String        @unique
-  password     String
-  bankAccounts BankAccount[]
-  categories   Category[]
-  transactions Transaction[]
-  goals        Goal[]
-  creditCards  CreditCard[]
-  debts        Debt[]
-  borrowers    Borrower[]
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String
+  email         String         @unique
+  password      String
+  bankAccounts  BankAccount[]
+  categories    Category[]
+  transactions  Transaction[]
+  goals         Goal[]
+  creditCards   CreditCard[]
+  debts         Debt[]
+  borrowers     Borrower[]
+  wishlists     Wishlist[]
+  wishlistItems WishlistItem[]
 
   @@map("user")
 }
@@ -68,6 +70,7 @@ model Category {
   transactions     Transaction[]
   cardPurchases    CardPurchase[]
   recurringCharges RecurringCharge[]
+  wishlistItems    WishlistItem[]
   subcategories    Category[]        @relation("CategoryTree")
 
   user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -279,4 +282,78 @@ model Borrower {
   transactions Transaction[]
 
   @@map("borrower")
+}
+
+enum WishlistItemStatus {
+  ACTIVE
+  PURCHASED
+  GAVE_UP
+
+  @@map("wishlistItemStatus")
+}
+
+model Wishlist {
+  id     String         @id @default(uuid()) @db.Uuid
+  userId String         @db.Uuid
+  name   String
+  // English snake_case key of the default "Geral" list; null on the user's own.
+  key    String?
+  items  WishlistItem[]
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@map("wishlist")
+}
+
+model WishlistItem {
+  id           String             @id @default(uuid()) @db.Uuid
+  userId       String             @db.Uuid
+  wishlistId   String             @db.Uuid
+  categoryId   String?            @db.Uuid
+  name         String
+  // First day of the planned month; plannedDay is null whenever this is.
+  plannedMonth DateTime?          @db.Date
+  plannedDay   DateTime?          @db.Date
+  nextReminder DateTime?          @db.Date
+  status       WishlistItemStatus @default(ACTIVE)
+  paidValue    Float?
+  paidDate     DateTime?          @db.Date
+  createdAt    DateTime           @default(now())
+  links        WishlistLink[]
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wishlist Wishlist  @relation(fields: [wishlistId], references: [id], onDelete: Restrict)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([wishlistId])
+  @@index([userId, status, nextReminder])
+  @@map("wishlistItem")
+}
+
+model WishlistLink {
+  id        String          @id @default(uuid()) @db.Uuid
+  itemId    String          @db.Uuid
+  url       String
+  storeName String
+  createdAt DateTime        @default(now())
+  prices    WishlistPrice[]
+
+  item WishlistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@map("wishlistLink")
+}
+
+model WishlistPrice {
+  id         String   @id @default(uuid()) @db.Uuid
+  linkId     String   @db.Uuid
+  value      Float
+  recordedOn DateTime @db.Date
+  createdAt  DateTime @default(now())
+
+  link WishlistLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@index([linkId])
+  @@map("wishlistPrice")
 }

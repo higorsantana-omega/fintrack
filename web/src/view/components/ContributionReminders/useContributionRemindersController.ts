@@ -20,14 +20,15 @@ type FormData = z.infer<typeof schema>
 
 type Answer = { action: 'CONFIRM', value: number } | { action: 'SKIP' }
 
-export function useContributionRemindersController() {
+export function useContributionRemindersController(onDone: () => void) {
   const queryClient = useQueryClient()
   const { refetch } = useGoalReminders()
-  const [queue, setQueue] = useState<GoalReminder[]>([])
+  const [queue, setQueue] = useState<GoalReminder[] | null>(null)
   const [isDismissed, setIsDismissed] = useState(false)
   const [pendingAction, setPendingAction] = useState<Answer['action'] | null>(null)
 
-  const currentReminder = isDismissed ? undefined : queue[0]
+  const currentReminder = isDismissed ? undefined : queue?.[0]
+  const isDone = queue !== null && !currentReminder
 
   const {
     handleSubmit: hookFormSubmit,
@@ -44,6 +45,12 @@ export function useContributionRemindersController() {
   useEffect(() => {
     refetch().then(({ data }) => setQueue(data ?? []))
   }, [refetch])
+
+  // The purchase reminders wait for this queue to end (KTD7): it ends when
+  // it empties, is dismissed, or fails to load (no data means an empty queue).
+  useEffect(() => {
+    if (isDone) onDone()
+  }, [isDone, onDone])
 
   useEffect(() => {
     if (currentReminder) {
@@ -71,7 +78,7 @@ export function useContributionRemindersController() {
 
     // A contribution may complete the goal and drop its later months.
     const result = await refetch()
-    setQueue(previous => result.isError ? previous.slice(1) : result.data ?? [])
+    setQueue(previous => result.isError ? (previous ?? []).slice(1) : result.data ?? [])
     setPendingAction(null)
   }, [mutateAsync, queryClient, refetch])
 

@@ -11,7 +11,8 @@ import { InputCurrency } from '../InputCurrency'
 import { Select } from '../Select'
 import { DatePickerInput } from '../DatePickerInput'
 import { ConfirmDeleteModal } from '../ConfirmDeleteModal'
-import { EntryTab, useCardEntryModalController } from './useCardEntryModalController'
+import { SavedTransaction } from '../TransactionFormModal/useTransactionFormModalController'
+import { CardEntryInitialValues, EntryTab, useCardEntryModalController } from './useCardEntryModalController'
 
 const TABS: { tab: EntryTab, label: string }[] = [
   { tab: 'PURCHASE', label: 'Compra' },
@@ -27,6 +28,14 @@ interface CardEntryModalProps {
   cardId?: string
   /** Edits this entry; its kind and card stay as they are. */
   entry?: CardEntry
+  /** Starting values of a new entry; only the first render counts. */
+  initialValues?: CardEntryInitialValues
+  /** Offers only these tabs, the first one selected. */
+  allowedTabs?: EntryTab[]
+  /** Hides "Compra já em andamento" from the installments tab. */
+  hideInProgress?: boolean
+  /** Fires right after a new entry is saved, before the limit screen. */
+  onSaved?(saved: SavedTransaction): void
   onClose(): void
 }
 
@@ -55,7 +64,7 @@ function getDeleteDescription(entry: CardEntry) {
   return undefined
 }
 
-export function CardEntryModal({ cards, cardId, entry, onClose }: CardEntryModalProps) {
+export function CardEntryModal({ cards, cardId, entry, initialValues, allowedTabs, hideInProgress, onSaved, onClose }: CardEntryModalProps) {
   const {
     register,
     control,
@@ -75,7 +84,7 @@ export function CardEntryModal({ cards, cardId, entry, onClose }: CardEntryModal
     closeDeleteModal,
     handleDelete,
     isLoadingDelete
-  } = useCardEntryModalController({ cards, cardId, entry, onClose })
+  } = useCardEntryModalController({ cards, cardId, entry, initialValues, allowedTabs, onSaved, onClose })
 
   if (limitWarning !== null) {
     return (
@@ -102,6 +111,7 @@ export function CardEntryModal({ cards, cardId, entry, onClose }: CardEntryModal
   }
 
   const isCardLocked = !!cardId || !!entry
+  const visibleTabs = allowedTabs ? TABS.filter(item => allowedTabs.includes(item.tab)) : TABS
   const anchorOptions = selectedCard
     ? [
       { month: selectedCard.lastClosedInvoiceMonth, label: 'fechada' },
@@ -122,7 +132,7 @@ export function CardEntryModal({ cards, cardId, entry, onClose }: CardEntryModal
     >
       {!entry && (
         <div role='tablist' className='flex gap-1 overflow-x-auto'>
-          {TABS.map(item => (
+          {visibleTabs.map(item => (
             <button
               key={item.tab}
               type='button'
@@ -190,16 +200,18 @@ export function CardEntryModal({ cards, cardId, entry, onClose }: CardEntryModal
 
           {tab === 'INSTALLMENTS' && (
             <>
-              <label className={cn('flex items-center gap-2 text-sm text-gray-800 tracking-[-0.5px]', entry && 'opacity-60')}>
-                <input
-                  id='entryInProgress'
-                  type='checkbox'
-                  className='w-4 h-4 accent-teal-900'
-                  disabled={!!entry}
-                  {...register('inProgress')}
-                />
-                Compra já em andamento
-              </label>
+              {!hideInProgress && (
+                <label className={cn('flex items-center gap-2 text-sm text-gray-800 tracking-[-0.5px]', entry && 'opacity-60')}>
+                  <input
+                    id='entryInProgress'
+                    type='checkbox'
+                    className='w-4 h-4 accent-teal-900'
+                    disabled={!!entry}
+                    {...register('inProgress')}
+                  />
+                  Compra já em andamento
+                </label>
+              )}
 
               <div className='grid grid-cols-2 gap-4'>
                 <Input

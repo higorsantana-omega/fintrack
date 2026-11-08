@@ -59,6 +59,7 @@ export class CategoriesRepository {
       this.prismaService.transaction.updateMany({ where, data }),
       this.prismaService.cardPurchase.updateMany({ where, data }),
       this.prismaService.recurringCharge.updateMany({ where, data }),
+      this.prismaService.wishlistItem.updateMany({ where, data }),
       this.prismaService.category.deleteMany({
         where: { id: { in: categoryIds } },
       }),

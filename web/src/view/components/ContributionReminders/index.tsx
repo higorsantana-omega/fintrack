@@ -8,9 +8,11 @@ import { useContributionRemindersController } from './useContributionRemindersCo
 interface ContributionRemindersProps {
   /** Holds the goal reminders while the invoice reminders run (R34). */
   isHeld?: boolean
+  /** Called when the queue ends, is dismissed, or fails to load. */
+  onDone(): void
 }
 
-export function ContributionReminders({ isHeld = false }: ContributionRemindersProps) {
+export function ContributionReminders({ isHeld = false, onDone }: ContributionRemindersProps) {
   const {
     currentReminder,
     control,
@@ -21,7 +23,7 @@ export function ContributionReminders({ isHeld = false }: ContributionRemindersP
     isConfirming,
     isSkipping,
     isAnswering
-  } = useContributionRemindersController()
+  } = useContributionRemindersController(onDone)
 
   if (isHeld || !currentReminder) return null
 

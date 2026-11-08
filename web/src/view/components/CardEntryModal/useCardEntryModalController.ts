@@ -11,6 +11,7 @@ import { getCategoryOptions } from '../../../app/utils/categories'
 import { currencyStringToNumber } from '../../../app/utils/currencyStringToNumber'
 import { formatDate } from '../../../app/utils/formatDate'
 import { calendarDateToLocal, positiveCurrency, toCalendarNoonIso } from '../../../app/utils/goalForm'
+import { SavedTransaction } from '../TransactionFormModal/useTransactionFormModalController'
 
 export const ENTRY_TABS = ['PURCHASE', 'INSTALLMENTS', 'RECURRING', 'REFUND'] as const
 
@@ -59,13 +60,31 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
+/**
+ * Starting values of a new entry. `Select` and `DatePickerInput` copy their
+ * value once when they mount, so these only count on the first render.
+ */
+export interface CardEntryInitialValues {
+  description?: string
+  /** A number, or the currency text the field shows; empty leaves it blank. */
+  value?: string | number
+  categoryId?: string
+  date?: Date
+}
+
 function getEntryTab(entry: CardEntry): EntryTab {
   if (entry.kind === 'REFUND') return 'REFUND'
 
   return entry.installmentsCount > 1 ? 'INSTALLMENTS' : 'PURCHASE'
 }
 
-function getDefaultValues(cards: CreditCard[], cardId?: string, entry?: CardEntry): FormData {
+function getDefaultValues(
+  cards: CreditCard[],
+  cardId?: string,
+  entry?: CardEntry,
+  initialValues?: CardEntryInitialValues,
+  allowedTabs?: EntryTab[]
+): FormData {
   if (entry) {
     const inProgress = entry.anchorInvoiceMonth !== null
 
@@ -85,12 +104,12 @@ function getDefaultValues(cards: CreditCard[], cardId?: string, entry?: CardEntr
   }
 
   return {
-    tab: 'PURCHASE',
+    tab: allowedTabs?.[0] ?? 'PURCHASE',
     cardId: cardId ?? (cards.length === 1 ? cards[0].id : ''),
-    description: '',
-    value: '0,00',
-    date: new Date(),
-    categoryId: '',
+    description: initialValues?.description ?? '',
+    value: initialValues?.value ?? '0,00',
+    date: initialValues?.date ?? new Date(),
+    categoryId: initialValues?.categoryId ?? '',
     installmentsCount: '',
     inProgress: false,
     currentInstallment: '',
@@ -102,10 +121,13 @@ interface CardEntryModalOptions {
   cards: CreditCard[]
   cardId?: string
   entry?: CardEntry
+  initialValues?: CardEntryInitialValues
+  allowedTabs?: EntryTab[]
+  onSaved?(saved: SavedTransaction): void
   onClose(): void
 }
 
-export function useCardEntryModalController({ cards, cardId, entry, onClose }: CardEntryModalOptions) {
+export function useCardEntryModalController({ cards, cardId, entry, initialValues, allowedTabs, onSaved, onClose }: CardEntryModalOptions) {
   const queryClient = useQueryClient()
   const { categories } = useCategories()
   const [limitWarning, setLimitWarning] = useState<number | null>(null)
@@ -120,7 +142,7 @@ export function useCardEntryModalController({ cards, cardId, entry, onClose }: C
     handleSubmit: hookFormSubmit
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: getDefaultValues(cards, cardId, entry)
+    defaultValues: getDefaultValues(cards, cardId, entry, initialValues, allowedTabs)
   })
 
   const [tab, selectedCardId, inProgress, anchorInvoiceMonth] = useWatch({
@@ -198,6 +220,9 @@ export function useCardEntryModalController({ cards, cardId, entry, onClose }: C
 
     queryClient.invalidateQueries({ queryKey: ['cards'] })
     toast.success(entry ? 'Lançamento atualizado!' : 'Lançamento registrado!')
+    // Before the limit check, so the caller hears of the save even if the
+    // limit screen follows.
+    onSaved?.({ value: currencyStringToNumber(data.value), date: data.date })
 
     // A purchase over the limit is accepted, with a warning (R32).
     const updatedCards = await queryClient.fetchQuery({
