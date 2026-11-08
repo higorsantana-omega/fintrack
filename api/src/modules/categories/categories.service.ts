@@ -19,6 +19,7 @@ import {
 } from 'src/shared/calendar';
 import { MAX_DATE_DISTANCE_MONTHS } from '../cards/card-calculations';
 import {
+  SYSTEM_KEYS_OUT_OF_TOTALS,
   countsInTab,
   getCategoryMonthTotals,
   getMonthCardItems,
@@ -44,6 +45,10 @@ export const INVALID_DESTINATION_MESSAGE =
 
 export const MONTH_OUT_OF_RANGE_MESSAGE =
   'The month is too far from the current one.';
+export const BUDGET_CATEGORY_MESSAGE =
+  'Only expense categories that count in the totals can have a limit.';
+export const BUDGET_REQUIRED_MESSAGE =
+  'A month can only be adjusted on a category that has a limit.';
 
 const normalize = (name: string) => name.trim().toLowerCase();
 
@@ -69,10 +74,7 @@ export class CategoriesService {
    */
   async getSummary(userId: string, month: string, type: TransactionType) {
     const today = getToday();
-    const monthKey = parseMonthKey(month);
-    if (Math.abs(monthKey - getMonthKey(today)) > MAX_DATE_DISTANCE_MONTHS) {
-      throw new BadRequestException(MONTH_OUT_OF_RANGE_MESSAGE);
-    }
+    const monthKey = this.parseMonthInRange(month, today);
 
     // A charge that fell due since the last read is only a purchase after this.
     await this.cardPurchasesRepository.materializeRecurringCharges(
@@ -165,6 +167,52 @@ export class CategoriesService {
         )
         .map(({ cents, ...item }) => ({ ...item, value: fromCents(cents) })),
     };
+  }
+
+  /** Replaces the general limit; the month overrides stay (R2, R3). */
+  async setBudget(userId: string, categoryId: string, amount: number) {
+    const category = await this.validateCategoryOwnershipService.validate(
+      userId,
+      categoryId,
+    );
+    const countsInTotals =
+      category.type === TransactionType.EXPENSE &&
+      !SYSTEM_KEYS_OUT_OF_TOTALS.includes(category.key);
+    if (!countsInTotals) throw new BadRequestException(BUDGET_CATEGORY_MESSAGE);
+
+    return this.categoriesRepository.upsertBudget(categoryId, amount);
+  }
+
+  /** The database cascade takes the month overrides along (R4). */
+  async removeBudget(userId: string, categoryId: string) {
+    await this.validateCategoryOwnershipService.validate(userId, categoryId);
+    await this.categoriesRepository.deleteBudget(categoryId);
+  }
+
+  async setMonthBudget(
+    userId: string,
+    categoryId: string,
+    month: string,
+    amount: number,
+  ) {
+    await this.validateCategoryOwnershipService.validate(userId, categoryId);
+    const monthKey = this.parseMonthInRange(month, getToday());
+    const budget = await this.categoriesRepository.findBudget(categoryId);
+    if (!budget) throw new BadRequestException(BUDGET_REQUIRED_MESSAGE);
+
+    return this.categoriesRepository.upsertBudgetMonth(
+      budget.id,
+      getMonthStart(monthKey),
+      amount,
+    );
+  }
+
+  async removeMonthBudget(userId: string, categoryId: string, month: string) {
+    await this.validateCategoryOwnershipService.validate(userId, categoryId);
+    await this.categoriesRepository.deleteBudgetMonth(
+      categoryId,
+      getMonthStart(parseMonthKey(month)),
+    );
   }
 
   async create(userId: string, createCategoryDto: CreateCategoryDto) {
@@ -262,6 +310,15 @@ export class CategoriesService {
 
     await this.categoriesRepository.moveItemsAndDelete(doomed, destination.id);
     return null;
+  }
+
+  private parseMonthInRange(month: string, today: Date) {
+    const monthKey = parseMonthKey(month);
+    if (Math.abs(monthKey - getMonthKey(today)) > MAX_DATE_DISTANCE_MONTHS) {
+      throw new BadRequestException(MONTH_OUT_OF_RANGE_MESSAGE);
+    }
+
+    return monthKey;
   }
 
   private getTrimmedName(name: string) {
