@@ -1,5 +1,5 @@
 import { ChevronDownIcon, ChevronRightIcon, DotsHorizontalIcon } from '@radix-ui/react-icons'
-import { Category } from '../../../../app/services/categoriesService'
+import { Category, CategoryBudget } from '../../../../app/services/categoriesService'
 import { getCategoryName, isSystemCategory } from '../../../../app/utils/categories'
 import { cn } from '../../../../app/utils/cn'
 import { formatCurrency } from '../../../../app/utils/formatCurrency'
@@ -18,21 +18,54 @@ interface CategoryTreeProps {
   onCreateSubcategory(parent: Category): void
   onEdit(category: Category): void
   onDelete(category: Category): void
+  onBudget(category: Category, budget: CategoryBudget | null): void
+}
+
+const BAR_COLORS = { OK: 'bg-teal-900', WARNING: 'bg-orange-400', OVER: 'bg-red-900' } as const
+
+/** The "spent / limit" bar of a category with a limit; every number comes from the API (R6, R8). */
+function BudgetBar({ name, total, budget }: { name: string, total: number, budget: CategoryBudget }) {
+  const spentPercent = Math.min(100, Math.max(0, (total / budget.limit) * 100))
+  const left = budget.remaining >= 0
+    ? `restam ${formatCurrency(budget.remaining)}`
+    : `${formatCurrency(-budget.remaining)} acima do limite`
+
+  return (
+    <div className='category-budget pl-1 pr-3 pb-1' data-status={budget.status}>
+      <div
+        role='progressbar'
+        aria-label={`Limite de ${name}`}
+        aria-valuemin={0}
+        aria-valuemax={budget.limit}
+        aria-valuenow={total}
+        className='h-1.5 rounded-full bg-gray-200 overflow-hidden'
+      >
+        <div className={cn('h-full rounded-full', BAR_COLORS[budget.status])} style={{ width: `${spentPercent}%` }} />
+      </div>
+      <p className={cn('category-budget-text mt-1 text-xs', budget.status === 'OVER' ? 'text-red-900' : 'text-gray-600')}>
+        {formatCurrency(total)} de {formatCurrency(budget.limit)}, {left}
+      </p>
+    </div>
+  )
 }
 
 interface RowMenuProps {
   category: Category
+  /** Null when the category has no limit; undefined when the tab has no limits (income). */
+  budget: CategoryBudget | null | undefined
   canCreateSubcategory: boolean
   onCreateSubcategory(parent: Category): void
   onEdit(category: Category): void
   onDelete(category: Category): void
+  onBudget(category: Category, budget: CategoryBudget | null): void
 }
 
 /** Only the actions that apply to the row (R26); a row with none gets no menu. */
-function RowMenu({ category, canCreateSubcategory, onCreateSubcategory, onEdit, onDelete }: RowMenuProps) {
+function RowMenu({ category, budget, canCreateSubcategory, onCreateSubcategory, onEdit, onDelete, onBudget }: RowMenuProps) {
   const isOwn = category.key === null
+  const canHaveBudget = budget !== undefined
 
-  if (!canCreateSubcategory && !isOwn) return null
+  if (!canCreateSubcategory && !isOwn && !canHaveBudget) return null
 
   return (
     <DropdownMenu.Root>
@@ -49,6 +82,11 @@ function RowMenu({ category, canCreateSubcategory, onCreateSubcategory, onEdit, 
       <DropdownMenu.Content>
         {canCreateSubcategory && (
           <DropdownMenu.Item onSelect={() => onCreateSubcategory(category)}>Criar subcategoria</DropdownMenu.Item>
+        )}
+        {canHaveBudget && (
+          <DropdownMenu.Item onSelect={() => onBudget(category, budget)}>
+            {budget ? 'Editar limite' : 'Definir limite'}
+          </DropdownMenu.Item>
         )}
         {isOwn && <DropdownMenu.Item onSelect={() => onEdit(category)}>Editar</DropdownMenu.Item>}
         {isOwn && (
@@ -68,14 +106,17 @@ export function CategoryTree({
   onOpenItems,
   onCreateSubcategory,
   onEdit,
-  onDelete
+  onDelete,
+  onBudget
 }: CategoryTreeProps) {
   const iconType = tab === 'EXPENSE' ? 'expense' : 'income'
-  const menuHandlers = { onCreateSubcategory, onEdit, onDelete }
+  const menuHandlers = { onCreateSubcategory, onEdit, onDelete, onBudget }
+  // Only the expense tab has limits (R1); its tree holds just the categories that count in the totals.
+  const budgetOf = (budget: CategoryBudget | null) => tab === 'EXPENSE' ? budget : undefined
 
   return (
     <ul id='categories-tree' className='space-y-2'>
-      {rows.map(({ category, total, subcategories }) => {
+      {rows.map(({ category, total, budget, subcategories }) => {
         const name = getCategoryName(category)
         const isCollapsed = collapsed.includes(category.id)
         const canHaveSubcategories = category.key !== DEBT_CATEGORY_KEY && !isSystemCategory(category)
@@ -110,29 +151,41 @@ export function CategoryTree({
               </button>
 
               <div className='w-10 shrink-0'>
-                <RowMenu category={category} canCreateSubcategory={canHaveSubcategories} {...menuHandlers} />
+                <RowMenu category={category} budget={budgetOf(budget)} canCreateSubcategory={canHaveSubcategories} {...menuHandlers} />
               </div>
             </div>
+            {budget && (
+              <div className='pl-11'>
+                <BudgetBar name={name} total={total} budget={budget} />
+              </div>
+            )}
 
             {!isCollapsed && subcategories.length > 0 && (
               <ul className='pb-2 space-y-1'>
                 {subcategories.map(sub => (
-                  <li key={sub.category.id} className={cn('category-sub flex items-center gap-1 pl-10 pr-1', sub.total === 0 && 'opacity-50')}>
-                    <button
-                      type='button'
-                      onClick={() => onOpenItems(sub.category.id)}
-                      className='category-open flex-1 min-w-0 flex items-center gap-3 text-left rounded-xl py-1 hover:bg-gray-50 transition-colors'
-                    >
-                      <CategoryIcon type={iconType} category={sub.category} />
-                      <strong className='category-name flex-1 min-w-0 truncate text-sm font-medium text-gray-800 tracking-[-0.5px]'>
-                        {getCategoryName(sub.category)}
-                      </strong>
-                      <span className='category-total text-sm text-gray-800 pr-2'>{formatCurrency(sub.total)}</span>
-                    </button>
+                  <li key={sub.category.id} className='category-sub'>
+                    <div className={cn('flex items-center gap-1 pl-10 pr-1', sub.total === 0 && 'opacity-50')}>
+                      <button
+                        type='button'
+                        onClick={() => onOpenItems(sub.category.id)}
+                        className='category-open flex-1 min-w-0 flex items-center gap-3 text-left rounded-xl py-1 hover:bg-gray-50 transition-colors'
+                      >
+                        <CategoryIcon type={iconType} category={sub.category} />
+                        <strong className='category-name flex-1 min-w-0 truncate text-sm font-medium text-gray-800 tracking-[-0.5px]'>
+                          {getCategoryName(sub.category)}
+                        </strong>
+                        <span className='category-total text-sm text-gray-800 pr-2'>{formatCurrency(sub.total)}</span>
+                      </button>
 
-                    <div className='w-10 shrink-0'>
-                      <RowMenu category={sub.category} canCreateSubcategory={false} {...menuHandlers} />
+                      <div className='w-10 shrink-0'>
+                        <RowMenu category={sub.category} budget={budgetOf(sub.budget)} canCreateSubcategory={false} {...menuHandlers} />
+                      </div>
                     </div>
+                    {sub.budget && (
+                      <div className='pl-[4.25rem]'>
+                        <BudgetBar name={getCategoryName(sub.category)} total={sub.total} budget={sub.budget} />
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useCategories } from '../../../app/hooks/useCategories'
 import { useCategoriesSummary } from '../../../app/hooks/useCategoriesSummary'
-import { Category } from '../../../app/services/categoriesService'
+import { Category, CategoryBudget } from '../../../app/services/categoriesService'
 import { buildCategoryTree } from '../../../app/utils/categories'
 import { getCurrentMonth } from '../../../app/utils/debtForm'
 
@@ -10,15 +10,17 @@ export type CategoriesTab = Category['type']
 export interface CategoryRow {
   category: Category
   total: number
-  subcategories: { category: Category, total: number }[]
+  budget: CategoryBudget | null
+  subcategories: { category: Category, total: number, budget: CategoryBudget | null }[]
 }
 
-/** What the page can open: the form (create or edit), the delete confirmation, or an items list. */
+/** What the page can open: the form (create or edit), the delete confirmation, the limit or an items list. */
 export type CategoriesModal =
   | { kind: 'createGroup' }
   | { kind: 'createSubcategory', parent: Category }
   | { kind: 'edit', category: Category }
   | { kind: 'delete', category: Category }
+  | { kind: 'budget', category: Category, budget: CategoryBudget | null }
   | { kind: 'items', categoryId: string | null }
 
 export function useCategoriesController() {
@@ -31,16 +33,18 @@ export function useCategoriesController() {
   const { summary, isInitialLoading: isLoadingSummary } = useCategoriesSummary(month, tab)
 
   const rows = useMemo<CategoryRow[]>(() => {
-    const totals = new Map(summary?.categories.map(row => [row.id, row.total]))
-    const totalOf = (category: Category) => totals.get(category.id) ?? 0
+    const byId = new Map(summary?.categories.map(row => [row.id, row]))
+    const totalOf = (category: Category) => byId.get(category.id)?.total ?? 0
+    const budgetOf = (category: Category) => byId.get(category.id)?.budget ?? null
 
     // The tree already is in catalog order, and the sort is stable, so equal totals keep it.
     return buildCategoryTree(categories, tab)
       .map(({ category, subcategories }) => ({
         category,
         total: totalOf(category),
+        budget: budgetOf(category),
         subcategories: subcategories
-          .map(sub => ({ category: sub, total: totalOf(sub) }))
+          .map(sub => ({ category: sub, total: totalOf(sub), budget: budgetOf(sub) }))
           .sort((a, b) => b.total - a.total)
       }))
       .sort((a, b) => b.total - a.total)

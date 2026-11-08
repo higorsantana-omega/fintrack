@@ -11,8 +11,9 @@ import { CreditCardsRepository } from 'src/database/repositories/credit-cards.re
 import { TransactionsRepository } from 'src/database/repositories/transactions.repositories';
 import { ParseMonthPipe } from 'src/pipes/ParseMonthPipe';
 import { getInvoiceMonth } from '../cards/card-calculations';
-import { formatMonthKey } from 'src/shared/calendar';
+import { formatMonthKey, parseMonthKey } from 'src/shared/calendar';
 import { CategoriesService } from './categories.service';
+import { CategoryBudgetDto } from './dto/category-budget.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { DeleteCategoryDto } from './dto/delete-category.dto';
 import { SummaryQueryDto } from './dto/summary-query.dto';
@@ -98,6 +99,9 @@ describe('CategoriesService', () => {
   let cards: any[];
   let accountTransactions: any[];
   let materialize: jest.Mock;
+  // The fake database of the limits; a month override dies with its limit.
+  let budgets: { id: string; categoryId: string; amount: number }[];
+  let budgetMonths: { budgetId: string; month: Date; amount: number }[];
 
   const move = (items: Item[], from: string[], to: string) =>
     items.forEach((item) => {
@@ -126,7 +130,62 @@ describe('CategoriesService', () => {
       { id: 'r2', categoryId: 'buffet' },
     ];
 
+    budgets = [];
+    budgetMonths = [];
+
     const categoriesRepository = {
+      findBudgets: async (userId: string, month: Date) =>
+        budgets
+          .filter(({ categoryId }) => find(categoryId)?.userId === userId)
+          .map((budget) => ({
+            ...budget,
+            months: budgetMonths.filter(
+              (override) =>
+                override.budgetId === budget.id &&
+                override.month.getTime() === month.getTime(),
+            ),
+          })),
+      findBudget: async (categoryId: string) =>
+        budgets.find((budget) => budget.categoryId === categoryId) ?? null,
+      upsertBudget: async (categoryId: string, amount: number) => {
+        const current = budgets.find((b) => b.categoryId === categoryId);
+        if (current) return Object.assign(current, { amount });
+        const created = { id: `budget-${categoryId}`, categoryId, amount };
+        budgets.push(created);
+        return created;
+      },
+      deleteBudget: async (categoryId: string) => {
+        const ids = budgets
+          .filter((budget) => budget.categoryId === categoryId)
+          .map(({ id }) => id);
+        budgets = budgets.filter(({ id }) => !ids.includes(id));
+        budgetMonths = budgetMonths.filter(
+          ({ budgetId }) => !ids.includes(budgetId),
+        );
+      },
+      upsertBudgetMonth: async (
+        budgetId: string,
+        month: Date,
+        amount: number,
+      ) => {
+        const current = budgetMonths.find(
+          (o) =>
+            o.budgetId === budgetId && o.month.getTime() === month.getTime(),
+        );
+        if (current) return Object.assign(current, { amount });
+        const created = { budgetId, month, amount };
+        budgetMonths.push(created);
+        return created;
+      },
+      deleteBudgetMonth: async (categoryId: string, month: Date) => {
+        const budget = budgets.find((b) => b.categoryId === categoryId);
+        budgetMonths = budgetMonths.filter(
+          (o) =>
+            !(
+              o.budgetId === budget?.id && o.month.getTime() === month.getTime()
+            ),
+        );
+      },
       findMany: async (userId: string) =>
         categories.filter((category) => category.userId === userId),
       findFirst: async (userId: string, categoryId: string) =>
@@ -769,6 +828,102 @@ describe('CategoriesService', () => {
       expect(summary.net).toBe(0);
     });
 
+    describe('budgets (KTD5)', () => {
+      const summaryOf = async (
+        m = month,
+        type: 'EXPENSE' | 'INCOME' = 'EXPENSE',
+      ) => service.getSummary(ANA, m, type);
+      const budgetOf = (summary: any, id: string) =>
+        summary.categories.find((c: any) => c.id === id).budget;
+
+      it('AE1: brings each limit in reais with what is left, and null without one', async () => {
+        accountTransactions.push(
+          transaction({
+            value: 600,
+            categoryId: 'delivery',
+            category: { key: 'delivery' },
+          }),
+          transaction({ value: 400, categoryId: 'food' }),
+        );
+        await service.setBudget(ANA, 'food', 1500);
+        await service.setBudget(ANA, 'delivery', 800);
+
+        const summary = await summaryOf();
+
+        expect(budgetOf(summary, 'delivery')).toEqual({
+          limit: 800,
+          isAdjusted: false,
+          remaining: 200,
+          status: 'OK',
+        });
+        expect(budgetOf(summary, 'food')).toMatchObject({
+          limit: 1500,
+          remaining: 500,
+        });
+        expect(budgetOf(summary, 'shopping')).toBeNull();
+      });
+
+      it('AE2: the override of a month shows only in that month, and removing it restores the limit', async () => {
+        await service.setBudget(ANA, 'shopping', 200);
+        const next = formatMonthKey(parseMonthKey(month) + 1);
+        await service.setMonthBudget(ANA, 'shopping', next, 600);
+
+        expect(budgetOf(await summaryOf(next), 'shopping')).toMatchObject({
+          limit: 600,
+          isAdjusted: true,
+        });
+        expect(budgetOf(await summaryOf(), 'shopping')).toMatchObject({
+          limit: 200,
+          isAdjusted: false,
+        });
+
+        await service.removeMonthBudget(ANA, 'shopping', next);
+
+        expect(budgetOf(await summaryOf(next), 'shopping')).toMatchObject({
+          limit: 200,
+          isAdjusted: false,
+        });
+      });
+
+      it('AE4: the balance counts the group limit, or else the subcategory limits', async () => {
+        accountTransactions.push(
+          transaction({ value: 1000, categoryId: 'food' }),
+          transaction({
+            value: 40,
+            categoryId: 'entertainment',
+            category: { key: 'entertainment' },
+          }),
+        );
+        await service.setBudget(ANA, 'food', 1500);
+        await service.setBudget(ANA, 'entertainment', 100);
+
+        expect((await summaryOf()).balance).toBe(560);
+      });
+
+      it('has no limits and a null balance on the INCOME tab, and without any limit', async () => {
+        await service.setBudget(ANA, 'food', 1500);
+
+        const income = await summaryOf(month, 'INCOME');
+
+        expect(income.balance).toBeNull();
+        expect(income.categories.every((c: any) => c.budget === null)).toBe(
+          true,
+        );
+        expect((await summaryOf()).balance).not.toBeNull();
+
+        await service.removeBudget(ANA, 'food');
+        expect((await summaryOf()).balance).toBeNull();
+      });
+
+      it("does not show another user's limits", async () => {
+        budgets.push({ id: 'b', categoryId: 'bia-group', amount: 100 });
+
+        const summary = await summaryOf();
+
+        expect(summary.balance).toBeNull();
+      });
+    });
+
     it('returns 400 for a month more than 120 months away', async () => {
       await expect(
         service.getSummary(ANA, '2037-01', 'EXPENSE'),
@@ -793,6 +948,105 @@ describe('CategoriesService', () => {
           { type: 'query', metatype: SummaryQueryDto },
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('budgets (KTD2, KTD3)', () => {
+    it('sets the limit of a default category, and a new value replaces it keeping the overrides', async () => {
+      await service.setBudget(ANA, 'food', 1500);
+      await service.setMonthBudget(ANA, 'food', '2026-12', 600);
+      await service.setBudget(ANA, 'food', 1800);
+
+      expect(budgets).toEqual([
+        expect.objectContaining({ categoryId: 'food', amount: 1800 }),
+      ]);
+      expect(budgetMonths).toHaveLength(1);
+    });
+
+    it('accepts the expense Dívidas group', async () => {
+      await service.setBudget(ANA, 'debts', 300);
+
+      expect(budgets).toHaveLength(1);
+    });
+
+    it('returns 400 for an income category and for goals, card payment and loans', async () => {
+      for (const id of [
+        'salary-group',
+        'debts-income',
+        'goals',
+        'card',
+        'loans',
+      ]) {
+        await expect(service.setBudget(ANA, id, 100)).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+      }
+      expect(budgets).toEqual([]);
+    });
+
+    it("returns 404 for another user's category", async () => {
+      await expect(
+        service.setBudget(ANA, 'bia-group', 100),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.removeBudget(ANA, 'bia-group'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('rejects an amount of 0, negative or with three decimals at the DTO', async () => {
+      const pipe = new ValidationPipe({ whitelist: true });
+      const check = (amount: number) =>
+        pipe.transform(
+          { amount },
+          { type: 'body', metatype: CategoryBudgetDto },
+        );
+
+      for (const amount of [0, -5, 10.123]) {
+        await expect(check(amount)).rejects.toBeInstanceOf(BadRequestException);
+      }
+      await expect(check(10.5)).resolves.toEqual({ amount: 10.5 });
+    });
+
+    it('returns 400 when adjusting a month of a category without a limit', async () => {
+      await expect(
+        service.setMonthBudget(ANA, 'food', '2026-12', 600),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('returns 400 for a month beyond 120 months, and for a malformed month', async () => {
+      await service.setBudget(ANA, 'food', 1500);
+
+      await expect(
+        service.setMonthBudget(ANA, 'food', '2037-01', 600),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(() => new ParseMonthPipe().transform('2026-1')).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('removing a month override leaves the other months and the limit', async () => {
+      await service.setBudget(ANA, 'food', 1500);
+      await service.setMonthBudget(ANA, 'food', '2026-11', 100);
+      await service.setMonthBudget(ANA, 'food', '2026-12', 600);
+
+      await service.removeMonthBudget(ANA, 'food', '2026-12');
+
+      expect(budgetMonths).toEqual([
+        expect.objectContaining({ month: day('2026-11-01'), amount: 100 }),
+      ]);
+      expect(budgets).toHaveLength(1);
+    });
+
+    it('removing a limit takes its overrides, and removing what is not there is fine', async () => {
+      await service.setBudget(ANA, 'food', 1500);
+      await service.setMonthBudget(ANA, 'food', '2026-12', 600);
+
+      await service.removeBudget(ANA, 'food');
+      await service.removeBudget(ANA, 'food');
+      await service.removeMonthBudget(ANA, 'food', '2026-12');
+
+      expect(budgets).toEqual([]);
+      expect(budgetMonths).toEqual([]);
     });
   });
 

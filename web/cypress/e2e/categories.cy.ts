@@ -216,7 +216,7 @@ describe('Categorias', () => {
     cy.createBankAccount('Itaú')
 
     visitCategories()
-    group('Compras').find('.category-menu').click()
+    group('Compras').find('.category-menu').first().click()
     cy.contains('[role="menuitem"]', 'Criar subcategoria').click()
     cy.get('#categoryName').type('Ração')
     cy.get('#categorySubmit').click()
@@ -237,7 +237,7 @@ describe('Categorias', () => {
     signUp()
 
     visitCategories()
-    group('Alimentação').find('.category-menu').click()
+    group('Alimentação').find('.category-menu').first().click()
     cy.contains('[role="menuitem"]', 'Criar subcategoria').click()
     cy.get('#categoryName').type('delivery')
     cy.get('#categorySubmit').click()
@@ -322,16 +322,25 @@ describe('Categorias', () => {
     })
   })
 
-  it('gives a default group only "Criar subcategoria", and a default subcategory or Dívidas no menu (AE10)', () => {
+  it('gives a default group "Criar subcategoria" and "Definir limite", a default subcategory or Dívidas only "Definir limite", and income no menu (AE10)', () => {
     signUp()
 
     visitCategories()
-    group('Alimentação').find('.category-menu').click()
-    cy.get('[role="menuitem"]').should('have.length', 1).and('contain', 'Criar subcategoria')
+    group('Alimentação').find('.category-menu').first().click()
+    cy.get('[role="menuitem"]').should('have.length', 2)
+      .and('contain', 'Criar subcategoria').and('contain', 'Definir limite')
     cy.get('body').type('{esc}')
 
-    sub('Delivery').find('.category-menu').should('not.exist')
-    group('Dívidas').find('.category-menu').should('not.exist')
+    sub('Delivery').find('.category-menu').click()
+    cy.get('[role="menuitem"]').should('have.length', 1).and('contain', 'Definir limite')
+    cy.get('body').type('{esc}')
+
+    group('Dívidas').find('.category-menu').first().click()
+    cy.get('[role="menuitem"]').should('have.length', 1).and('contain', 'Definir limite')
+    cy.get('body').type('{esc}')
+
+    cy.get('#categories-tab-income').click()
+    sub('Salário').find('.category-menu').should('not.exist')
   })
 
   it('goes from December to January of the next year in the month selector (R22)', () => {
@@ -345,5 +354,141 @@ describe('Categorias', () => {
     cy.get('#categories-month-next').click()
     cy.get('#categories-month-label').should('have.text', `Jan/${currentYear + 1}`)
     cy.get('#categories-tree').should('be.visible')
+  })
+})
+
+describe('Limites por categoria', () => {
+  function setBudget(categoryId: string, amount: number, month?: string) {
+    cy.apiRequest('PUT', `/categories/${categoryId}/budget${month ? `/${month}` : ''}`, { amount })
+      .its('status').should('eq', 200)
+  }
+
+  const budgetText = (name: string, kind: 'group' | 'sub' = 'sub') =>
+    (kind === 'group' ? group(name) : sub(name)).find('.category-budget-text').first()
+
+  it('compares each limit with its own spending, the group counting its subcategories (AE1)', () => {
+    signUp()
+    cy.createBankAccount('Itaú').then(accountId => {
+      withCategories(['food', 'supermarket', 'restaurants'], 'EXPENSE', ids => {
+        setBudget(ids.food, 1500)
+        setBudget(ids.supermarket, 800)
+        createTransaction(accountId, ids.supermarket, 'Compras do mês', 600)
+        createTransaction(accountId, ids.restaurants, 'Jantar', 400)
+      })
+    })
+
+    visitCategories()
+    budgetText('Supermercado').invoke('text').should('match', brl('600,00')).and('match', brl('800,00')).and('match', brl('200,00'))
+    budgetText('Alimentação', 'group').invoke('text').should('match', brl('1.000,00')).and('match', brl('1.500,00')).and('match', brl('500,00'))
+    sub('Restaurantes').find('.category-budget').should('not.exist')
+  })
+
+  it('sets a limit from the menu, adjusts only another month and removes the adjustment (AE2)', () => {
+    signUp()
+    visitCategories()
+
+    sub('Presentes').find('.category-menu').click()
+    cy.contains('[role="menuitem"]', 'Definir limite').click()
+    cy.get('#categoryBudgetAmount').clear().type('200')
+    cy.get('#categoryBudgetSubmit').click()
+    budgetText('Presentes').invoke('text').should('match', brl('200,00'))
+
+    cy.get('#categories-month-next').click()
+    cy.get('#categories-month-label').should('have.text', monthLabelAt(1))
+    budgetText('Presentes').invoke('text').should('match', brl('200,00'))
+    sub('Presentes').find('.category-menu').click()
+    cy.contains('[role="menuitem"]', 'Editar limite').click()
+    cy.contains('[role="radio"]', 'Só este mês').click()
+    cy.get('#categoryBudgetAmount').clear().type('600')
+    cy.get('#categoryBudgetSubmit').click()
+    budgetText('Presentes').invoke('text').should('match', brl('600,00'))
+
+    cy.get('#categories-month-prev').click()
+    budgetText('Presentes').invoke('text').should('match', brl('200,00')).and('not.match', brl('600,00'))
+
+    cy.get('#categories-month-next').click()
+    sub('Presentes').find('.category-menu').click()
+    cy.contains('[role="menuitem"]', 'Editar limite').click()
+    cy.get('#categoryBudgetRemoveMonth').click()
+    budgetText('Presentes').invoke('text').should('match', brl('200,00')).and('not.match', brl('600,00'))
+  })
+
+  it('turns the bar to warning above 80% and to over past the limit, saying how much (AE3)', () => {
+    signUp()
+    cy.createBankAccount('Itaú').then(accountId => {
+      withCategories(['transport'], 'EXPENSE', ids => {
+        setBudget(ids.transport, 500)
+        createTransaction(accountId, ids.transport, 'Corrida', 350)
+        visitCategories()
+        group('Transporte').find('.category-budget').first().should('have.attr', 'data-status', 'OK')
+
+        createTransaction(accountId, ids.transport, 'Gasolina', 70)
+        visitCategories()
+        group('Transporte').find('.category-budget').first().should('have.attr', 'data-status', 'WARNING')
+
+        createTransaction(accountId, ids.transport, 'Conserto', 110)
+        visitCategories()
+        group('Transporte').find('.category-budget').first().should('have.attr', 'data-status', 'OVER')
+        budgetText('Transporte', 'group').invoke('text').should('match', brl('30,00')).and('contain', 'acima do limite')
+      })
+    })
+  })
+
+  it('shows the balance of the month in the donut, with the total in smaller type (AE4)', () => {
+    signUp()
+    cy.createBankAccount('Itaú').then(accountId => {
+      withCategories(['food', 'tickets'], 'EXPENSE', ids => {
+        setBudget(ids.food, 1500)
+        setBudget(ids.tickets, 100)
+        createTransaction(accountId, ids.food, 'Mercado', 1000)
+        createTransaction(accountId, ids.tickets, 'Show', 40)
+      })
+    })
+
+    visitCategories()
+    cy.get('#categories-balance').invoke('text').should('match', brl('560,00'))
+    cy.get('#categories-net').invoke('text').should('match', brl('1.040,00'))
+  })
+
+  it('removes a limit with its adjustments, and a new limit then also applies to the adjusted month', () => {
+    signUp()
+    withCategories(['gifts'], 'EXPENSE', ids => {
+      setBudget(ids.gifts, 200)
+      setBudget(ids.gifts, 600, monthKeyOf(nextMonth15th))
+
+      visitCategories()
+      cy.get('#categories-month-next').click()
+      budgetText('Presentes').invoke('text').should('match', brl('600,00'))
+      sub('Presentes').find('.category-menu').click()
+      cy.contains('[role="menuitem"]', 'Editar limite').click()
+      cy.get('#categoryBudgetRemove').click()
+      sub('Presentes').find('.category-budget').should('not.exist')
+
+      setBudget(ids.gifts, 300)
+      visitCategories()
+      cy.get('#categories-month-next').click()
+      budgetText('Presentes').invoke('text').should('match', brl('300,00')).and('not.match', brl('600,00'))
+    })
+  })
+
+  it('refuses a limit of zero with the message and saves nothing', () => {
+    signUp()
+    visitCategories()
+
+    sub('Presentes').find('.category-menu').click()
+    cy.contains('[role="menuitem"]', 'Definir limite').click()
+    cy.get('#categoryBudgetAmount').clear().type('0')
+    cy.get('#categoryBudgetSubmit').click()
+    cy.contains('O limite deve ser maior que zero').should('be.visible')
+    cy.get('#categoryBudgetAmount').should('be.visible')
+    sub('Presentes').find('.category-budget').should('not.exist')
+  })
+
+  it('has no balance in the donut without any limit', () => {
+    signUp()
+
+    visitCategories()
+    cy.get('#categories-net').should('be.visible')
+    cy.get('#categories-balance').should('not.exist')
   })
 })

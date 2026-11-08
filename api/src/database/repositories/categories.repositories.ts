@@ -65,4 +65,47 @@ export class CategoriesRepository {
       }),
     ]);
   }
+
+  /** The user's limits, each with its override of `month` only (0 or 1). */
+  async findBudgets(userId: string, month: Date) {
+    return this.prismaService.categoryBudget.findMany({
+      where: { category: { userId } },
+      include: { months: { where: { month } } },
+    });
+  }
+
+  async findBudget(categoryId: string) {
+    return this.prismaService.categoryBudget.findUnique({
+      where: { categoryId },
+    });
+  }
+
+  async upsertBudget(categoryId: string, amount: number) {
+    return this.prismaService.categoryBudget.upsert({
+      where: { categoryId },
+      create: { categoryId, amount },
+      update: { amount },
+    });
+  }
+
+  /** The database cascade removes the limit's month overrides with it. */
+  async deleteBudget(categoryId: string) {
+    await this.prismaService.categoryBudget.deleteMany({
+      where: { categoryId },
+    });
+  }
+
+  async upsertBudgetMonth(budgetId: string, month: Date, amount: number) {
+    return this.prismaService.categoryBudgetMonth.upsert({
+      where: { budgetId_month: { budgetId, month } },
+      create: { budgetId, month, amount },
+      update: { amount },
+    });
+  }
+
+  async deleteBudgetMonth(categoryId: string, month: Date) {
+    await this.prismaService.categoryBudgetMonth.deleteMany({
+      where: { month, budget: { categoryId } },
+    });
+  }
 }

@@ -72,6 +72,7 @@ model Category {
   recurringCharges RecurringCharge[]
   wishlistItems    WishlistItem[]
   subcategories    Category[]        @relation("CategoryTree")
+  budget           CategoryBudget?
 
   user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   parent Category? @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Cascade)
@@ -79,6 +80,31 @@ model Category {
   @@unique([userId, type, key])
   @@index([parentId])
   @@map("category")
+}
+
+// Monthly spending limit of a category; applies to every month until changed.
+model CategoryBudget {
+  id         String                @id @default(uuid()) @db.Uuid
+  categoryId String                @unique @db.Uuid
+  amount     Float
+  months     CategoryBudgetMonth[]
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("categoryBudget")
+}
+
+// Limit of one specific month (first day of the month), overriding the general one.
+model CategoryBudgetMonth {
+  id       String   @id @default(uuid()) @db.Uuid
+  budgetId String   @db.Uuid
+  month    DateTime @db.Date
+  amount   Float
+
+  budget CategoryBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@unique([budgetId, month])
+  @@map("categoryBudgetMonth")
 }
 
 model Transaction {
