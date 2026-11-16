@@ -48,7 +48,13 @@ describe('AuthService', () => {
       rows.filter((row) => row.type === type && !row.parentId);
     const subs = (type: string) =>
       rows.filter((row) => row.type === type && row.parentId);
-    const systemKeys = ['card_payment', 'goals', 'debts', 'loans'];
+    const systemKeys = [
+      'card_payment',
+      'goals',
+      'debts',
+      'loans',
+      'pre_fintrack',
+    ];
 
     // 15 default groups plus the expense "debts" system group.
     expect(
@@ -73,6 +79,7 @@ describe('AuthService', () => {
       'goals/INCOME',
       'loans/EXPENSE',
       'loans/INCOME',
+      'pre_fintrack/EXPENSE',
     ]);
 
     // Every row has a key, unique within its type, and each subcategory
@@ -102,6 +109,17 @@ describe('AuthService', () => {
         .filter((row: { parentId?: string }) => row.parentId === food.id)
         .map((row: { key: string }) => row.key),
     ).toEqual(['delivery', 'supermarket', 'restaurants']);
+  });
+
+  it('starts the new account on the ACCOUNTS onboarding step', async () => {
+    await service.signup({
+      name: 'Ana',
+      email: 'ana@example.com',
+      password: '12345678',
+    });
+
+    const [{ data }] = usersRepository.create.mock.calls[0];
+    expect(data.onboardingStep).toBe('ACCOUNTS');
   });
 
   it('creates only the Geral wishlist on signup', async () => {

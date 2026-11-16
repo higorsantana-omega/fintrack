@@ -455,6 +455,23 @@ export function hasBalanceToPay(invoice: Invoice) {
   return invoice.status !== 'FUTURE' && invoice.balance > 0;
 }
 
+export function getAdjustableInvoices(card: CardSnapshot, today: Date) {
+  const openMonth = getInvoiceMonth(card.cycles, today);
+  const [lastClosed] = getInvoices(card, today, {
+    fromMonth: openMonth - 1,
+    toMonth: openMonth - 1,
+  });
+  // The status alone does not tell, since an empty closed invoice is PAID.
+  const stillWaitsForPayment =
+    today <= lastClosed.dueDate || lastClosed.balance > 0;
+
+  return {
+    openMonth,
+    lastClosedMonth: lastClosed.month,
+    unpaidClosedMonth: stillWaitsForPayment ? lastClosed.month : null,
+  };
+}
+
 // Derived values ---------------------------------------------------------------
 
 /** Everything the card owes, future installments included (R31, R32). */

@@ -39,6 +39,10 @@ Cypress.Commands.add('register', (name, email, password) => {
   cy.get('#email').type(email)
   cy.get('#password').type(password)
   cy.get('button').contains('Criar conta').click()
+
+  cy.location('pathname').should('eq', '/configuracao')
+  cy.apiRequest('DELETE', '/users/me/onboarding').its('status').should('eq', 200)
+  cy.visit('http://localhost:5173/')
 })
 
 Cypress.Commands.add('apiRequest', (method, path, body) => {

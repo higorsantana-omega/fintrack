@@ -39,6 +39,7 @@ import {
 import {
   Forecast,
   Invoice,
+  getAdjustableInvoices,
   hasBalanceToPay,
   getCardSeries,
   getCardsSeries,
@@ -349,7 +350,7 @@ export class CardsService {
     });
     const latest = card.cycles[card.cycles.length - 1];
     const limit = getLimit(card);
-    const openMonth = getInvoiceMonth(card.cycles, today);
+    const { openMonth, unpaidClosedMonth } = getAdjustableInvoices(card, today);
 
     return {
       id: card.id,
@@ -372,6 +373,8 @@ export class CardsService {
       // (R18) and the earliest first charge of a recurring one (R19).
       openInvoiceMonth: formatMonthKey(openMonth),
       lastClosedInvoiceMonth: formatMonthKey(openMonth - 1),
+      unpaidClosedInvoiceMonth:
+        unpaidClosedMonth === null ? null : formatMonthKey(unpaidClosedMonth),
       earliestChargeDate: toNoonUtc(
         getInvoiceDates(card.cycles, openMonth - 1).periodStart,
       ),

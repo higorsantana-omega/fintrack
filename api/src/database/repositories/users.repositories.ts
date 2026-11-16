@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { Prisma } from '@prisma/client';
+import { OnboardingStep, Prisma } from '@prisma/client';
 
 @Injectable()
 export class UsersRepository {
@@ -20,5 +20,14 @@ export class UsersRepository {
     return this.prismaService.user.findUnique({
       where: { id: userId },
     });
+  }
+
+  // Only an active onboarding moves, so a stale tab cannot revive a finished one.
+  async updateOnboardingStep(userId: string, step: OnboardingStep | null) {
+    const { count } = await this.prismaService.user.updateMany({
+      where: { id: userId, onboardingStep: { not: null } },
+      data: { onboardingStep: step },
+    });
+    return { onboardingStep: count > 0 ? step : null };
   }
 }

@@ -427,6 +427,10 @@ describe('Metas', () => {
     cy.get('#email').type(generateEmail())
     cy.get('#password').type('Red@Mod1')
     cy.get('button').contains('Criar conta').click()
+    // Leaving the onboarding without a reload keeps the cache under test.
+    cy.location('pathname').should('eq', '/configuracao')
+    cy.contains('header button', 'Sair da configuração').click()
+    cy.contains('[role="dialog"] button', 'Sair da configuração').click()
     cy.location('pathname').should('eq', '/')
 
     cy.get('nav').contains('Metas').click()

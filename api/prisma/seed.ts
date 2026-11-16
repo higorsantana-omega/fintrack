@@ -1,5 +1,6 @@
-// Development-only seed: one user with data for every feature of the app.
-// Run with `npm run seed`; it recreates the user, so it is safe to re-run.
+// Development-only seed: one user with data for every feature of the app, and
+// one empty user that starts the onboarding.
+// Run with `npm run seed`; it recreates both users, so it is safe to re-run.
 import 'dotenv/config';
 import { Prisma, PrismaClient, TransactionType } from '@prisma/client';
 import { hash } from 'bcryptjs';
@@ -38,6 +39,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const SEED_EMAIL = 'dev@fintrack.com';
+const ONBOARDING_EMAIL = 'novo@fintrack.com';
 const SEED_PASSWORD = '12345678';
 
 const prisma = new PrismaClient();
@@ -524,7 +526,23 @@ async function main() {
     [4599, 20],
   ]);
 
+  // Same data a signup creates, so this account opens the onboarding empty.
+  await prisma.user.deleteMany({ where: { email: ONBOARDING_EMAIL } });
+  await prisma.user.create({
+    data: {
+      name: 'Novo Usuário',
+      email: ONBOARDING_EMAIL,
+      password: await hash(SEED_PASSWORD, 12),
+      onboardingStep: 'ACCOUNTS',
+      categories: { createMany: { data: buildDefaultCategories() } },
+      wishlists: {
+        create: { key: GENERAL_WISHLIST_KEY, name: GENERAL_WISHLIST_NAME },
+      },
+    },
+  });
+
   console.log(`Seed done. Login: ${SEED_EMAIL} / ${SEED_PASSWORD}`);
+  console.log(`Onboarding: ${ONBOARDING_EMAIL} / ${SEED_PASSWORD}`);
 }
 
 main()

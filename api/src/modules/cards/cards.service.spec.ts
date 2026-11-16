@@ -840,6 +840,40 @@ describe('CardsService', () => {
       expect(list[1].archivedAt).toEqual(archived.archivedAt);
     });
 
+    it('KTD7: lists the last closed invoice as unpaid up to its due date even when empty, and after it only while it has a balance', async () => {
+      const empty = makeCard({ name: 'Vazio' });
+      const owing = makeCard({
+        name: 'Devendo',
+        purchases: [purchase('2026-10', 100)],
+      });
+      const paid = makeCard({
+        name: 'Pago',
+        purchases: [purchase('2026-10', 100)],
+        payments: [payment('2026-10', 100)],
+      });
+      cards.push(empty, owing, paid);
+      const unpaidMonths = async () =>
+        (await service.findAllByUserId(ANA)).map((card) => [
+          card.name,
+          card.unpaidClosedInvoiceMonth,
+        ]);
+
+      // October closed on 10/3 and is due on 10/10.
+      setToday('2026-10-10T15:00:00.000Z');
+      expect(await unpaidMonths()).toEqual([
+        ['Vazio', '2026-10'],
+        ['Devendo', '2026-10'],
+        ['Pago', '2026-10'],
+      ]);
+
+      setToday('2026-10-11T15:00:00.000Z');
+      expect(await unpaidMonths()).toEqual([
+        ['Vazio', null],
+        ['Devendo', '2026-10'],
+        ['Pago', null],
+      ]);
+    });
+
     it('returns the card page: the strip with entries and payments, the selected invoice, active recurring charges and the last payment account', async () => {
       const cancelled = netflix({
         description: 'Spotify',

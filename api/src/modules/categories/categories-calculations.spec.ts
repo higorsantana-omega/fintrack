@@ -89,7 +89,7 @@ describe('getMonthCardItems (KTD6)', () => {
     description: 'Compra',
     purchaseDate: day('2026-09-20'),
     installmentsCount: count,
-    category: categoryId ? { id: categoryId } : null,
+    category: categoryId ? { id: categoryId, key: null } : null,
     installments: installments.map(([number, month, value]) => ({
       number,
       value,
@@ -167,6 +167,24 @@ describe('getMonthCardItems (KTD6)', () => {
     expect(getMonthCardItems(cards, day('2026-10-17'), m('2026-10'))).toEqual(
       [],
     );
+  });
+
+  it('AE1: leaves out a purchase in a system category out of the totals, and keeps a common one', () => {
+    const adjustment = {
+      ...installmentPurchase('PURCHASE', 'pre', [[1, '2026-11', 642.52]]),
+      category: { id: 'pre', key: 'pre_fintrack' },
+    };
+    const common = installmentPurchase('PURCHASE', 'shop', [
+      [1, '2026-11', 100],
+    ]);
+
+    expect(
+      getMonthCardItems(
+        [card({ purchases: [adjustment, common] })],
+        day('2026-11-16'),
+        m('2026-11'),
+      ),
+    ).toEqual([expect.objectContaining({ categoryId: 'shop', cents: 10000 })]);
   });
 
   it('AE14: an archived card keeps its November installment but has no forecast', () => {

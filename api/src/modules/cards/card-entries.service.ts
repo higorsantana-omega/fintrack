@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { CardWithRelations } from 'src/database/repositories/credit-cards.repositories';
@@ -22,7 +23,10 @@ import {
   toCents,
   toNoonUtc,
 } from 'src/shared/calendar';
-import { SYSTEM_CATEGORY_KEYS } from '../categories/categories.constants';
+import {
+  PRE_FINTRACK_CATEGORY_KEY,
+  SYSTEM_CATEGORY_KEYS,
+} from '../categories/categories.constants';
 import { ValidateCardOwnershipService } from './validate-card-ownership.service';
 import {
   CardPurchaseKind,
@@ -31,15 +35,19 @@ import {
 import { UpdateCardPurchaseDto } from './dto/update-card-purchase.dto';
 import { CreateRecurringChargeDto } from './dto/create-recurring-charge.dto';
 import { UpdateRecurringChargeDto } from './dto/update-recurring-charge.dto';
+import { SetOpeningAdjustmentDto } from './dto/set-opening-adjustment.dto';
 import {
   ARCHIVED_CARD_MESSAGE,
   DATE_OUT_OF_RANGE_MESSAGE,
+  OPENING_ADJUSTMENT_NAME,
 } from './cards.constants';
 import {
   addDays,
+  getAdjustableInvoices,
   getInstallments,
   getInvoiceDates,
   getInvoiceMonth,
+  getInvoices,
   isWithinDateWindow,
 } from './card-calculations';
 
@@ -130,6 +138,7 @@ export class CardEntriesService {
       userId,
       updateCardPurchaseDto.categoryId,
       purchase.kind === 'REFUND',
+      purchase.category?.id,
     );
 
     const anchorMonth = purchase.anchorInvoiceMonth
@@ -250,6 +259,88 @@ export class CardEntriesService {
     throw new ConflictException('The recurring charge changed; try again.');
   }
 
+  async setOpeningAdjustment(
+    userId: string,
+    cardId: string,
+    month: string,
+    { remaining }: SetOpeningAdjustmentDto,
+  ) {
+    const today = getToday();
+    // A charge due today counts in the invoice, as on every card read.
+    await this.cardPurchasesRepository.materializeRecurringCharges(
+      userId,
+      today,
+    );
+    const card = await this.getWritableCard(userId, cardId);
+
+    const monthKey = parseMonthKey(month);
+    const { openMonth, lastClosedMonth } = getAdjustableInvoices(card, today);
+    if (monthKey !== openMonth && monthKey !== lastClosedMonth) {
+      throw new BadRequestException(
+        'Only the open and the last closed invoices take an opening adjustment.',
+      );
+    }
+
+    const category = await this.categoriesRepository.findByKey(
+      userId,
+      PRE_FINTRACK_CATEGORY_KEY,
+      'EXPENSE',
+    );
+    if (!category) {
+      throw new InternalServerErrorException(
+        'Purchases before fintrack category not found.',
+      );
+    }
+
+    const [invoice] = getInvoices(card, today, {
+      fromMonth: monthKey,
+      toMonth: monthKey,
+    });
+    const current = card.purchases.find(
+      (purchase) =>
+        purchase.category?.key === PRE_FINTRACK_CATEGORY_KEY &&
+        getInvoiceMonth(card.cycles, toCalendarDate(purchase.purchaseDate)) ===
+          monthKey,
+    );
+    const currentCents = !current
+      ? 0
+      : toCents(current.totalValue) * (current.kind === 'REFUND' ? -1 : 1);
+    const diffCents =
+      toCents(remaining) - (toCents(invoice.balance) - currentCents);
+    const kind = diffCents > 0 ? 'PURCHASE' : 'REFUND';
+    const keepsCurrent = diffCents !== 0 && current?.kind === kind;
+
+    if (current && !keepsCurrent) {
+      await this.cardPurchasesRepository.delete(current.id);
+    }
+    if (diffCents === 0) return null;
+
+    const date = keepsCurrent
+      ? current.purchaseDate
+      : toNoonUtc(monthKey === openMonth ? today : invoice.periodStart);
+    const { data, installments } = this.toPurchase(
+      card,
+      {
+        description: OPENING_ADJUSTMENT_NAME,
+        categoryId: category.id,
+        value: fromCents(Math.abs(diffCents)),
+        date: date.toISOString(),
+      },
+      null,
+    );
+
+    if (keepsCurrent) {
+      await this.cardPurchasesRepository.update(current.id, data, installments);
+    } else {
+      await this.cardPurchasesRepository.create(
+        { ...data, creditCardId: card.id, kind, anchorInvoiceMonth: null },
+        installments,
+      );
+    }
+
+    return null;
+  }
+
   private async getWritableCard(userId: string, cardId: string) {
     const card = await this.validateCardOwnershipService.validate(
       userId,
@@ -304,6 +395,7 @@ export class CardEntriesService {
     userId: string,
     categoryId: string | undefined,
     isOptional: boolean,
+    currentCategoryId?: string,
   ) {
     if (!categoryId) {
       if (isOptional) return;
@@ -316,9 +408,14 @@ export class CardEntriesService {
     );
     if (!category) throw new NotFoundException('Category not found.');
 
+    const keepsPreFintrack =
+      category.key === PRE_FINTRACK_CATEGORY_KEY &&
+      category.id === currentCategoryId;
     if (
       category.type !== 'EXPENSE' ||
-      (category.key && SYSTEM_CATEGORY_KEYS.includes(category.key))
+      (category.key &&
+        SYSTEM_CATEGORY_KEYS.includes(category.key) &&
+        !keepsPreFintrack)
     ) {
       throw new BadRequestException(
         'Card entries take an expense category that is not a system category.',

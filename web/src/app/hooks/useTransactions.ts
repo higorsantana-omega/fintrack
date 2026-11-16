@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { TransactionsFilters, transactionsService } from "../services/transactionsService";
+import { useQuery } from '@tanstack/react-query'
+import { TransactionsFilters, transactionsService } from '../services/transactionsService'
 
 export function useTransactions (filters: TransactionsFilters) {
   const { data, isFetching, isInitialLoading, refetch } = useQuery({

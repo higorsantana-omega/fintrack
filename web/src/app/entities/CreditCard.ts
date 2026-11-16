@@ -36,6 +36,7 @@ export interface CreditCard {
   /** Invoices offered for the current installment of a purchase in progress. */
   openInvoiceMonth: string
   lastClosedInvoiceMonth: string
+  unpaidClosedInvoiceMonth: string | null
   /** Earliest first charge date of a new recurring charge. */
   earliestChargeDate: string
 }

@@ -7,6 +7,7 @@ export const DATE_OUT_OF_RANGE_MESSAGE =
   'The date must be within ten years of today.';
 
 export const PAYMENT_NAME_PREFIX = 'Fatura';
+export const OPENING_ADJUSTMENT_NAME = 'Compras antes do fintrack';
 
 export const MONTH_NAMES = [
   'janeiro',

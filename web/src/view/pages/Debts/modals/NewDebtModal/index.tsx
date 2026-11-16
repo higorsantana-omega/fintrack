@@ -11,10 +11,12 @@ import { useNewDebtModalController } from './useNewDebtModalController'
 
 interface NewDebtModalProps {
   open: boolean
+  /** Hides the loan's entry into an account: in the onboarding the balance copied from the statement already holds it (R26). */
+  hideEntry?: boolean
   onClose(): void
 }
 
-export function NewDebtModal({ open, onClose }: NewDebtModalProps) {
+export function NewDebtModal({ open, hideEntry, onClose }: NewDebtModalProps) {
   const { register, errors, control, handleSubmit, isLoading, hasEntry, accounts } = useNewDebtModalController(onClose)
 
   return (
@@ -95,15 +97,17 @@ export function NewDebtModal({ open, onClose }: NewDebtModalProps) {
             </div>
           </div>
 
-          <label className='flex items-center gap-2 text-sm text-gray-800 tracking-[-0.5px]'>
-            <input
-              id='debtHasEntry'
-              type='checkbox'
-              className='w-4 h-4 accent-teal-900'
-              {...register('hasEntry')}
-            />
-            O dinheiro do empréstimo entrou numa conta
-          </label>
+          {!hideEntry && (
+            <label className='flex items-center gap-2 text-sm text-gray-800 tracking-[-0.5px]'>
+              <input
+                id='debtHasEntry'
+                type='checkbox'
+                className='w-4 h-4 accent-teal-900'
+                {...register('hasEntry')}
+              />
+              O dinheiro do empréstimo entrou numa conta
+            </label>
+          )}
 
           {hasEntry && (
             <>

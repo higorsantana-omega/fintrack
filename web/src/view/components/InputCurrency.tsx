@@ -6,9 +6,10 @@ interface InputCurrencyProps {
   error?: string
   onChange?(value: string): void
   value?: string | number
+  readOnly?: boolean
 }
 
-export function InputCurrency ({ id, error, onChange, value }: InputCurrencyProps) {
+export function InputCurrency ({ id, error, onChange, value, readOnly }: InputCurrencyProps) {
   return (
     <div>
       <NumericFormat
@@ -20,6 +21,7 @@ export function InputCurrency ({ id, error, onChange, value }: InputCurrencyProp
         // guessed as the numeric string 1.000 and shown as '1,000'.
         valueIsNumericString={false}
         value={value}
+        readOnly={readOnly}
         defaultValue='0,00'
         onChange={event => onChange?.(event.target.value)}
       />
