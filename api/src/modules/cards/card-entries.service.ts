@@ -22,7 +22,10 @@ import {
   toCents,
   toNoonUtc,
 } from 'src/shared/calendar';
-import { SYSTEM_CATEGORY_KEYS } from '../categories/categories.constants';
+import {
+  PRE_FINTRACK_CATEGORY_KEY,
+  SYSTEM_CATEGORY_KEYS,
+} from '../categories/categories.constants';
 import { ValidateCardOwnershipService } from './validate-card-ownership.service';
 import {
   CardPurchaseKind,
@@ -130,6 +133,7 @@ export class CardEntriesService {
       userId,
       updateCardPurchaseDto.categoryId,
       purchase.kind === 'REFUND',
+      purchase.category?.id,
     );
 
     const anchorMonth = purchase.anchorInvoiceMonth
@@ -298,12 +302,14 @@ export class CardEntriesService {
 
   /**
    * Card entries take one of the user's expense categories that is not a
-   * system category (KTD3); refunds may have none.
+   * system category (KTD3); refunds may have none. A purchase already in
+   * "purchases before fintrack" may keep it when edited (KTD8).
    */
   private async validateCategory(
     userId: string,
     categoryId: string | undefined,
     isOptional: boolean,
+    currentCategoryId?: string,
   ) {
     if (!categoryId) {
       if (isOptional) return;
@@ -316,9 +322,14 @@ export class CardEntriesService {
     );
     if (!category) throw new NotFoundException('Category not found.');
 
+    const keepsPreFintrack =
+      category.key === PRE_FINTRACK_CATEGORY_KEY &&
+      category.id === currentCategoryId;
     if (
       category.type !== 'EXPENSE' ||
-      (category.key && SYSTEM_CATEGORY_KEYS.includes(category.key))
+      (category.key &&
+        SYSTEM_CATEGORY_KEYS.includes(category.key) &&
+        !keepsPreFintrack)
     ) {
       throw new BadRequestException(
         'Card entries take an expense category that is not a system category.',

@@ -63,6 +63,7 @@ const seed = (): Row[] => [
   row({ id: 'goals', name: 'Goals', key: 'goals' }),
   row({ id: 'loans', name: 'Loans', key: 'loans' }),
   row({ id: 'card', name: 'Card payment', key: 'card_payment' }),
+  row({ id: 'pre', name: 'Before fintrack', key: 'pre_fintrack' }),
   row({ id: 'debts-income', name: 'Debts', key: 'debts', type: 'INCOME' }),
   row({ id: 'salary-group', name: 'Income', key: 'income', type: 'INCOME' }),
   row({ id: 'racao', name: 'Ração', parentId: 'shopping' }),
@@ -739,6 +740,28 @@ describe('CategoriesService', () => {
       expect(summary.net).toBe(30);
     });
 
+    it('AE1: a R$ 642,52 purchase before fintrack changes neither the month total nor any limit', async () => {
+      await service.setBudget(ANA, 'shopping', 500);
+      cards.push(makeCard({ purchases: [purchase()] }));
+      const before = await service.getSummary(ANA, month, 'EXPENSE');
+
+      cards[0].purchases.push(
+        purchase({
+          id: 'adjustment',
+          description: 'Compras antes do fintrack',
+          installmentsCount: 1,
+          category: { id: 'pre', key: 'pre_fintrack' },
+          installments: [
+            { number: 1, value: 642.52, invoiceMonth: day(`${month}-01`) },
+          ],
+        }),
+      );
+
+      // The common purchase still counts.
+      expect(before.net).toBe(100);
+      expect(await service.getSummary(ANA, month, 'EXPENSE')).toEqual(before);
+    });
+
     it('counts a debt installment payment under Debts', async () => {
       accountTransactions.push(
         transaction({
@@ -969,13 +992,14 @@ describe('CategoriesService', () => {
       expect(budgets).toHaveLength(1);
     });
 
-    it('returns 400 for an income category and for goals, card payment and loans', async () => {
+    it('returns 400 for an income category and for goals, card payment, loans and purchases before fintrack', async () => {
       for (const id of [
         'salary-group',
         'debts-income',
         'goals',
         'card',
         'loans',
+        'pre',
       ]) {
         await expect(service.setBudget(ANA, id, 100)).rejects.toBeInstanceOf(
           BadRequestException,

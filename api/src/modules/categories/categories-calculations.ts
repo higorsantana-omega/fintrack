@@ -4,6 +4,7 @@ import {
   DEBT_CATEGORY_KEY,
   GOAL_CATEGORY_KEY,
   LOAN_CATEGORY_KEY,
+  PRE_FINTRACK_CATEGORY_KEY,
 } from './categories.constants';
 import {
   CardSnapshot,
@@ -41,6 +42,7 @@ export const SYSTEM_KEYS_OUT_OF_TOTALS = [
   CARD_PAYMENT_CATEGORY_KEY,
   GOAL_CATEGORY_KEY,
   LOAN_CATEGORY_KEY,
+  PRE_FINTRACK_CATEGORY_KEY,
 ];
 
 /**
@@ -72,7 +74,7 @@ type MonthPurchase = {
   description: string;
   purchaseDate: Date;
   installmentsCount: number;
-  category: { id: string } | null;
+  category: { id: string; key: string | null } | null;
   installments: { number: number; invoiceMonth: Date; value: number }[];
 };
 
@@ -104,7 +106,8 @@ export type MonthCardItem = CountedItem & {
 /**
  * Installments and refunds whose invoice is the month, plus the month's
  * forecasts, of all cards. Forecasts use the rule's current category, and
- * `getForecasts` gives none for an archived card.
+ * `getForecasts` gives none for an archived card. Purchases in a system
+ * category out of the totals stay out, as account transactions do (R17).
  */
 export function getMonthCardItems(
   cards: MonthCard[],
@@ -112,7 +115,10 @@ export function getMonthCardItems(
   month: number,
 ): MonthCardItem[] {
   return cards.flatMap((card) => {
-    const installments = card.purchases.flatMap((purchase) =>
+    const counted = card.purchases.filter(
+      ({ category }) => !SYSTEM_KEYS_OUT_OF_TOTALS.includes(category?.key),
+    );
+    const installments = counted.flatMap((purchase) =>
       purchase.installments
         .filter(({ invoiceMonth }) => getMonthKey(invoiceMonth) === month)
         .map((installment): MonthCardItem => {

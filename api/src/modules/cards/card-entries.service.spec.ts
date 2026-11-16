@@ -83,6 +83,14 @@ const categories = [
     type: 'EXPENSE',
   },
   {
+    id: 'pre-fintrack',
+    userId: ANA,
+    name: 'Before fintrack',
+    key: 'pre_fintrack',
+    icon: 'receipt',
+    type: 'EXPENSE',
+  },
+  {
     id: 'bia-food',
     userId: BIA,
     name: 'Comida',
@@ -605,12 +613,51 @@ describe('CardEntriesService', () => {
         'card-payment',
         'debts',
         'loans',
+        'pre-fintrack',
       ]) {
         await expect(
           service.createPurchase(ANA, card.id, single({ categoryId })),
         ).rejects.toBeInstanceOf(BadRequestException);
       }
       expect(card.purchases).toEqual([]);
+    });
+
+    it('KTD8: edits the value of a purchase already in pre_fintrack, keeping the category', async () => {
+      const card = makeCard();
+      cards.push(card);
+      await service.createPurchase(ANA, card.id, single());
+      const [adjustment] = card.purchases;
+      // The adjustment is stored straight in its system category.
+      adjustment.category = categoryView('pre-fintrack');
+
+      await service.updatePurchase(ANA, card.id, adjustment.id, {
+        description: 'Compras antes do fintrack',
+        categoryId: 'pre-fintrack',
+        value: 642.52,
+        date: '2026-10-02T15:00:00.000Z',
+      });
+
+      expect(adjustment).toMatchObject({
+        totalValue: 642.52,
+        category: { id: 'pre-fintrack' },
+      });
+    });
+
+    it('returns 400 when an edit moves a common purchase to pre_fintrack', async () => {
+      const card = makeCard();
+      cards.push(card);
+      await service.createPurchase(ANA, card.id, single());
+      const [purchase] = card.purchases;
+
+      await expect(
+        service.updatePurchase(ANA, card.id, purchase.id, {
+          description: 'Mercado',
+          categoryId: 'pre-fintrack',
+          value: 100,
+          date: '2026-10-02T15:00:00.000Z',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(purchase.category.id).toBe('food');
     });
 
     it('accepts a purchase in a user category that only shares a system icon', async () => {

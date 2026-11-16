@@ -101,7 +101,8 @@ export const CATEGORY_LABELS: Record<string, string> = {
   card_payment: 'Fatura de cartão',
   goals: 'Metas',
   debts: 'Dívidas',
-  loans: 'Empréstimos'
+  loans: 'Empréstimos',
+  pre_fintrack: 'Compras antes do fintrack'
 }
 
 // Mirror the API's system category keys.
@@ -109,12 +110,14 @@ export const CARD_PAYMENT_CATEGORY_KEY = 'card_payment'
 export const GOAL_CATEGORY_KEY = 'goals'
 export const DEBT_CATEGORY_KEY = 'debts'
 export const LOAN_CATEGORY_KEY = 'loans'
+export const PRE_FINTRACK_CATEGORY_KEY = 'pre_fintrack'
 
 export const SYSTEM_CATEGORY_KEYS = [
   CARD_PAYMENT_CATEGORY_KEY,
   GOAL_CATEGORY_KEY,
   DEBT_CATEGORY_KEY,
-  LOAN_CATEGORY_KEY
+  LOAN_CATEGORY_KEY,
+  PRE_FINTRACK_CATEGORY_KEY
 ]
 
 export const SEM_CATEGORIA_LABEL = 'Sem categoria'

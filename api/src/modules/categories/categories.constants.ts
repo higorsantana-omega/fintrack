@@ -299,12 +299,14 @@ export const CARD_PAYMENT_CATEGORY_KEY = 'card_payment';
 export const GOAL_CATEGORY_KEY = 'goals';
 export const DEBT_CATEGORY_KEY = 'debts';
 export const LOAN_CATEGORY_KEY = 'loans';
+export const PRE_FINTRACK_CATEGORY_KEY = 'pre_fintrack';
 
 export const SYSTEM_CATEGORY_KEYS = [
   CARD_PAYMENT_CATEGORY_KEY,
   GOAL_CATEGORY_KEY,
   DEBT_CATEGORY_KEY,
   LOAN_CATEGORY_KEY,
+  PRE_FINTRACK_CATEGORY_KEY,
 ];
 
 export interface SystemCategorySeed extends CategorySeed {
@@ -355,6 +357,12 @@ export const SYSTEM_CATEGORIES: SystemCategorySeed[] = [
     name: 'Loans',
     icon: 'hand-coins',
     type: TransactionType.INCOME,
+  },
+  {
+    key: PRE_FINTRACK_CATEGORY_KEY,
+    name: 'Before fintrack',
+    icon: 'receipt',
+    type: TransactionType.EXPENSE,
   },
 ];
 
