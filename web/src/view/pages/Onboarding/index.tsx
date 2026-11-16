@@ -6,10 +6,23 @@ import { ExitOnboardingModal } from './components/ExitOnboardingModal'
 import { OnboardingProvider } from './components/OnboardingContext'
 import { StepFooter } from './components/StepFooter'
 import { StepList } from './components/StepList'
+import { AccountsStep } from './steps/AccountsStep'
+import { BudgetsStep } from './steps/BudgetsStep'
+import { CardsStep } from './steps/CardsStep'
+import { DebtsStep } from './steps/DebtsStep'
+import { GoalsStep } from './steps/GoalsStep'
+import { WishlistStep } from './steps/WishlistStep'
 import { useOnboardingController } from './useOnboardingController'
 
 // The content of each step, under its title. A step without an entry shows only its title and help text.
-const STEP_BODIES: Partial<Record<OnboardingStep, ComponentType>> = {}
+const STEP_BODIES: Partial<Record<OnboardingStep, ComponentType>> = {
+  ACCOUNTS: AccountsStep,
+  CARDS: CardsStep,
+  BUDGETS: BudgetsStep,
+  GOALS: GoalsStep,
+  DEBTS: DebtsStep,
+  WISHLIST: WishlistStep
+}
 
 function OnboardingContent() {
   const {
