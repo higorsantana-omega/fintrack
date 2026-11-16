@@ -259,11 +259,6 @@ export class CardEntriesService {
     throw new ConflictException('The recurring charge changed; try again.');
   }
 
-  /**
-   * Leaves the invoice with at most one "purchases before fintrack" entry
-   * that brings its balance to what the bank says is left to pay (KTD6). The
-   * entry is always recalculated from the invoice without it.
-   */
   async setOpeningAdjustment(
     userId: string,
     cardId: string,
@@ -394,8 +389,7 @@ export class CardEntriesService {
 
   /**
    * Card entries take one of the user's expense categories that is not a
-   * system category (KTD3); refunds may have none. A purchase already in
-   * "purchases before fintrack" may keep it when edited (KTD8).
+   * system category (KTD3); refunds may have none.
    */
   private async validateCategory(
     userId: string,

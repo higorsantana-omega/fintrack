@@ -16,7 +16,6 @@ import { ReviewStep } from './steps/ReviewStep'
 import { WishlistStep } from './steps/WishlistStep'
 import { useOnboardingController } from './useOnboardingController'
 
-// The content of each step, under its title.
 const STEP_BODIES: Record<OnboardingStep, ComponentType> = {
   ACCOUNTS: AccountsStep,
   CARDS: CardsStep,

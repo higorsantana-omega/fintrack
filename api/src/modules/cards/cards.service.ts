@@ -373,7 +373,6 @@ export class CardsService {
       // (R18) and the earliest first charge of a recurring one (R19).
       openInvoiceMonth: formatMonthKey(openMonth),
       lastClosedInvoiceMonth: formatMonthKey(openMonth - 1),
-      // The closed invoice the setup still asks about (KTD7).
       unpaidClosedInvoiceMonth:
         unpaidClosedMonth === null ? null : formatMonthKey(unpaidClosedMonth),
       earliestChargeDate: toNoonUtc(

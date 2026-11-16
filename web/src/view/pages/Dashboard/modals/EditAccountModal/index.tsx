@@ -21,7 +21,6 @@ function formatInstallments(installments: number[]) {
 }
 
 interface EditAccountModalProps {
-  /** Fires after the account is saved, as the modal closes. */
   onSaved?(): void
 }
 

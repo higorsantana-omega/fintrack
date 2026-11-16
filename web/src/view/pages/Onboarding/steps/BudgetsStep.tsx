@@ -5,10 +5,9 @@ import { Category, CategoryBudget } from '../../../../app/services/categoriesSer
 import { buildCategoryTree, getCategoryName } from '../../../../app/utils/categories'
 import { getCurrentMonth } from '../../../../app/utils/debtForm'
 import { formatCurrency } from '../../../../app/utils/formatCurrency'
-import { Spinner } from '../../../components/Spinner'
 import { CategoryBudgetModal } from '../../Categories/modals/CategoryBudgetModal'
 import { useOnboarding } from '../components/OnboardingContext/useOnboarding'
-import { StepItem } from '../components/StepItems'
+import { StepItem, StepItemList, StepLoader } from '../components/StepItems'
 
 export function BudgetsStep() {
   const { setHasItems } = useOnboarding()
@@ -23,21 +22,14 @@ export function BudgetsStep() {
     setHasItems(hasBudgets)
   }, [hasBudgets, setHasItems])
 
-  if (!summary || categories.length === 0) {
-    return (
-      <div className='py-8 flex justify-center'>
-        <Spinner className='w-8 h-8' />
-      </div>
-    )
-  }
+  if (!summary || categories.length === 0) return <StepLoader />
 
   const budgetOf = (category: Category) => summary.categories.find(row => row.id === category.id)?.budget ?? null
-  // Groups carry the color dot; their subcategories follow them, indented.
   const rows = buildCategoryTree(categories, 'EXPENSE').flatMap(({ category, subcategories }) => [category, ...subcategories])
 
   return (
     <>
-      <ul className='rounded-2xl border border-gray-200 divide-y divide-gray-200 overflow-hidden'>
+      <StepItemList>
         {rows.map(category => {
           const budget = budgetOf(category)
 
@@ -53,7 +45,7 @@ export function BudgetsStep() {
             />
           )
         })}
-      </ul>
+      </StepItemList>
 
       {editing && (
         <CategoryBudgetModal

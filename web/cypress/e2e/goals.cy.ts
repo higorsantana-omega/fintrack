@@ -427,7 +427,7 @@ describe('Metas', () => {
     cy.get('#email').type(generateEmail())
     cy.get('#password').type('Red@Mod1')
     cy.get('button').contains('Criar conta').click()
-    // A new account opens the onboarding; leaving it without a reload keeps the cache under test.
+    // Leaving the onboarding without a reload keeps the cache under test.
     cy.location('pathname').should('eq', '/configuracao')
     cy.contains('header button', 'Sair da configuração').click()
     cy.contains('[role="dialog"] button', 'Sair da configuração').click()

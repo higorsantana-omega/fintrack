@@ -106,8 +106,7 @@ export type MonthCardItem = CountedItem & {
 /**
  * Installments and refunds whose invoice is the month, plus the month's
  * forecasts, of all cards. Forecasts use the rule's current category, and
- * `getForecasts` gives none for an archived card. Purchases in a system
- * category out of the totals stay out, as account transactions do (R17).
+ * `getForecasts` gives none for an archived card.
  */
 export function getMonthCardItems(
   cards: MonthCard[],

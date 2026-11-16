@@ -18,7 +18,6 @@ describe('Signin page', () => {
     const email = generateEmail()
     const password = 'Red@Mod1'
     cy.register('teste', email, password)
-    // cy.register leaves the new account signed in.
     cy.clearLocalStorage()
 
     cy.visit('http://localhost:5173/login')

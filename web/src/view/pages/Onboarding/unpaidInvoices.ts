@@ -1,10 +1,6 @@
 import { CreditCardDetail } from '../../../app/entities/CreditCard'
 import { formatDate } from '../../../app/utils/formatDate'
 
-/**
- * The invoices the bank may still charge (KTD7, KTD11): the closed one only when
- * the API says it is unpaid, then the open one.
- */
 export function getUnpaidInvoices(card: CreditCardDetail) {
   return [
     { month: card.unpaidClosedInvoiceMonth, isClosed: true },
@@ -19,7 +15,6 @@ export function getUnpaidInvoices(card: CreditCardDetail) {
       invoice,
       isClosed,
       label: `${isClosed ? 'Fatura fechada' : 'Fatura aberta'} · vence ${dueDay}`,
-      /** What "Corrigir" on the review step names this invoice by. */
       correctionId: `${card.id}:${invoice.month}`
     }]
   })

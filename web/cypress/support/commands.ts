@@ -40,7 +40,6 @@ Cypress.Commands.add('register', (name, email, password) => {
   cy.get('#password').type(password)
   cy.get('button').contains('Criar conta').click()
 
-  // A new account starts the onboarding; ending it lets the suites test the app (KTD12).
   cy.location('pathname').should('eq', '/configuracao')
   cy.apiRequest('DELETE', '/users/me/onboarding').its('status').should('eq', 200)
   cy.visit('http://localhost:5173/')

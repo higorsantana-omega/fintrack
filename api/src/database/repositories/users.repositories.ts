@@ -24,13 +24,10 @@ export class UsersRepository {
 
   // Only an active onboarding moves, so a stale tab cannot revive a finished one.
   async updateOnboardingStep(userId: string, step: OnboardingStep | null) {
-    await this.prismaService.user.updateMany({
+    const { count } = await this.prismaService.user.updateMany({
       where: { id: userId, onboardingStep: { not: null } },
       data: { onboardingStep: step },
     });
-    return this.prismaService.user.findUnique({
-      where: { id: userId },
-      select: { onboardingStep: true },
-    });
+    return { onboardingStep: count > 0 ? step : null };
   }
 }

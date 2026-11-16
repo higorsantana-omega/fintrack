@@ -116,7 +116,6 @@ export async function payInvoice({ cardId, month, ...params }: InvoicePaymentPar
   return data
 }
 
-/** Makes the invoice match what the bank says is left to pay on it. */
 export async function setOpeningAdjustment({ cardId, month, remaining }: { cardId: string, month: string, remaining: number }) {
   await httpClient.put(`/cards/${cardId}/invoices/${month}/opening-adjustment`, { remaining })
 }

@@ -10,11 +10,29 @@ interface StepItemsProps {
   emptyMessage: string
   isLoading?: boolean
   onAdd(): void
-  /** The StepItem rows. */
   children: ReactNode
 }
 
-/** What a step already has, with the button that adds one more. */
+export function StepLoader() {
+  return (
+    <div className='py-8 flex justify-center'>
+      <Spinner className='w-8 h-8' />
+    </div>
+  )
+}
+
+export function StepItemList({ children }: { children: ReactNode }) {
+  return <ul className='rounded-2xl border border-gray-200 divide-y divide-gray-200 overflow-hidden'>{children}</ul>
+}
+
+export function StepEmpty({ children }: { children: ReactNode }) {
+  return (
+    <p className='py-8 px-4 rounded-2xl border border-dashed border-gray-300 text-center text-sm text-gray-600 tracking-[-0.5px]'>
+      {children}
+    </p>
+  )
+}
+
 export function StepItems({ title, addLabel, emptyMessage, isLoading, onAdd, children }: StepItemsProps) {
   const isEmpty = Children.count(children) === 0
 
@@ -28,23 +46,11 @@ export function StepItems({ title, addLabel, emptyMessage, isLoading, onAdd, chi
         </Button>
       </div>
 
-      {isEmpty && isLoading && (
-        <div className='py-8 flex justify-center'>
-          <Spinner className='w-8 h-8' />
-        </div>
-      )}
+      {isEmpty && isLoading && <StepLoader />}
 
-      {isEmpty && !isLoading && (
-        <p className='py-8 px-4 rounded-2xl border border-dashed border-gray-300 text-center text-sm text-gray-600 tracking-[-0.5px]'>
-          {emptyMessage}
-        </p>
-      )}
+      {isEmpty && !isLoading && <StepEmpty>{emptyMessage}</StepEmpty>}
 
-      {!isEmpty && (
-        <ul className='rounded-2xl border border-gray-200 divide-y divide-gray-200 overflow-hidden'>
-          {children}
-        </ul>
-      )}
+      {!isEmpty && <StepItemList>{children}</StepItemList>}
     </div>
   )
 }
@@ -52,7 +58,6 @@ export function StepItems({ title, addLabel, emptyMessage, isLoading, onAdd, chi
 interface StepItemProps {
   name: string
   detail?: string
-  /** Already formatted, drawn with equal-width digits. */
   value?: string
   color?: string
   className?: string

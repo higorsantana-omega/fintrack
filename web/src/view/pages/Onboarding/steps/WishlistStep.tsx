@@ -11,7 +11,6 @@ export function WishlistStep() {
   const { setHasItems } = useOnboarding()
   const { items, isInitialLoading } = useWishlistItems()
   const { lists } = useWishlistLists()
-  // Without an item, ItemModal creates one in the Geral list.
   const [modal, setModal] = useState<{ item?: WishlistItem } | null>(null)
 
   useEffect(() => {

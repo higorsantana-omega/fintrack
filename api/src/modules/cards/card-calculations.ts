@@ -455,26 +455,20 @@ export function hasBalanceToPay(invoice: Invoice) {
   return invoice.status !== 'FUTURE' && invoice.balance > 0;
 }
 
-/**
- * The invoices that take an opening adjustment (KTD6, KTD7): the open one and
- * the last closed one, which still waits for payment up to its due date, or
- * after it while it has a balance. The status alone does not tell, since an
- * empty closed invoice is PAID.
- */
 export function getAdjustableInvoices(card: CardSnapshot, today: Date) {
   const openMonth = getInvoiceMonth(card.cycles, today);
   const [lastClosed] = getInvoices(card, today, {
     fromMonth: openMonth - 1,
     toMonth: openMonth - 1,
   });
+  // The status alone does not tell, since an empty closed invoice is PAID.
+  const stillWaitsForPayment =
+    today <= lastClosed.dueDate || lastClosed.balance > 0;
 
   return {
     openMonth,
     lastClosedMonth: lastClosed.month,
-    unpaidClosedMonth:
-      today <= lastClosed.dueDate || lastClosed.balance > 0
-        ? lastClosed.month
-        : null,
+    unpaidClosedMonth: stillWaitsForPayment ? lastClosed.month : null,
   };
 }
 

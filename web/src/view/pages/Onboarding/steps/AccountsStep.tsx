@@ -18,7 +18,6 @@ function Accounts() {
     setHasItems(accounts.length > 0)
   }, [accounts.length, setHasItems])
 
-  // "Corrigir" on the review step opens that account once; the modal toggles, so never twice.
   useEffect(() => {
     const account = accounts.find(({ id }) => id === correctionId)
     if (!account || hasOpenedCorrection.current) return

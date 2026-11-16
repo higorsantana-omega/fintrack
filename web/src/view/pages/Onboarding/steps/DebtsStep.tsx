@@ -17,7 +17,6 @@ type DebtsModal =
   | { kind: 'newBorrower' }
   | { kind: 'editBorrower', id: string }
 
-// The edit modals take the detail, so they open once the detail pages' queries load it.
 function EditDebt({ debtId, onClose }: { debtId: string, onClose(): void }) {
   const { debt } = useDebt(debtId)
 

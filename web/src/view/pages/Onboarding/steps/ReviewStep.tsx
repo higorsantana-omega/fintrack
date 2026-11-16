@@ -3,8 +3,8 @@ import { useBankAccounts } from '../../../../app/hooks/useBankAccounts'
 import { useCardDetails } from '../../../../app/hooks/useCardDetails'
 import { useCards } from '../../../../app/hooks/useCards'
 import { formatCurrency } from '../../../../app/utils/formatCurrency'
-import { Spinner } from '../../../components/Spinner'
 import { useOnboarding } from '../components/OnboardingContext/useOnboarding'
+import { StepEmpty, StepItemList, StepLoader } from '../components/StepItems'
 import { getUnpaidInvoices } from '../unpaidInvoices'
 
 interface ReviewRowProps {
@@ -44,13 +44,7 @@ function ReviewSection({ title, emptyMessage, children }: { title: string, empty
     <section className='flex flex-col gap-3'>
       <h2 className='font-medium text-gray-800 tracking-[-0.5px]'>{title}</h2>
 
-      {children.length === 0 ? (
-        <p className='py-8 px-4 rounded-2xl border border-dashed border-gray-300 text-center text-sm text-gray-600 tracking-[-0.5px]'>
-          {emptyMessage}
-        </p>
-      ) : (
-        <ul className='rounded-2xl border border-gray-200 divide-y divide-gray-200 overflow-hidden'>{children}</ul>
-      )}
+      {children.length === 0 ? <StepEmpty>{emptyMessage}</StepEmpty> : <StepItemList>{children}</StepItemList>}
     </section>
   )
 }
@@ -61,13 +55,7 @@ export function ReviewStep() {
   const { cards: cardList, isInitialLoading } = useCards()
   const { cards, isInitialLoading: isLoadingDetails } = useCardDetails(cardList.map(({ id }) => id))
 
-  if ((accounts.length === 0 && isFetching) || isInitialLoading || isLoadingDetails) {
-    return (
-      <div className='py-8 flex justify-center'>
-        <Spinner className='w-8 h-8' />
-      </div>
-    )
-  }
+  if ((accounts.length === 0 && isFetching) || isInitialLoading || isLoadingDetails) return <StepLoader />
 
   const total = accounts.reduce((sum, account) => sum + account.currentBalance, 0)
 

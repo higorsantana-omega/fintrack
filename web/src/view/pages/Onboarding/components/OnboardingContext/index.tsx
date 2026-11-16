@@ -16,7 +16,6 @@ interface OnboardingContextValue {
   isFinishing: boolean
   setHasItems(hasItems: boolean): void
   goTo(step: OnboardingStep): Promise<void>
-  /** Opens the step of the item that `itemId` names, to correct it from the review step. */
   correct(step: OnboardingStep, itemId: string): Promise<void>
   goNext(): Promise<void>
   goBack(): Promise<void>
@@ -48,7 +47,6 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
     try {
       const { onboardingStep } = await moveMutation.mutateAsync(step)
-      // The next step's body reports its own items once it mounts.
       setHasItems(false)
       setCorrectionId(nextCorrectionId)
       mergeStep(onboardingStep)
