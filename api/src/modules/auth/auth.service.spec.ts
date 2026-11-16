@@ -104,6 +104,17 @@ describe('AuthService', () => {
     ).toEqual(['delivery', 'supermarket', 'restaurants']);
   });
 
+  it('starts the new account on the ACCOUNTS onboarding step', async () => {
+    await service.signup({
+      name: 'Ana',
+      email: 'ana@example.com',
+      password: '12345678',
+    });
+
+    const [{ data }] = usersRepository.create.mock.calls[0];
+    expect(data.onboardingStep).toBe('ACCOUNTS');
+  });
+
   it('creates only the Geral wishlist on signup', async () => {
     await service.signup({
       name: 'Ana',

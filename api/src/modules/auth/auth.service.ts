@@ -49,6 +49,7 @@ export class AuthService {
         name: signupDto.name,
         email: signupDto.email,
         password: hashedPassword,
+        onboardingStep: 'ACCOUNTS',
         categories: {
           createMany: { data: buildDefaultCategories() },
         },

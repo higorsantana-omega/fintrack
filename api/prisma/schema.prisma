@@ -11,21 +11,36 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid()) @db.Uuid
-  name          String
-  email         String         @unique
-  password      String
-  bankAccounts  BankAccount[]
-  categories    Category[]
-  transactions  Transaction[]
-  goals         Goal[]
-  creditCards   CreditCard[]
-  debts         Debt[]
-  borrowers     Borrower[]
-  wishlists     Wishlist[]
-  wishlistItems WishlistItem[]
+  id             String          @id @default(uuid()) @db.Uuid
+  name           String
+  email          String          @unique
+  password       String
+  bankAccounts   BankAccount[]
+  categories     Category[]
+  transactions   Transaction[]
+  goals          Goal[]
+  creditCards    CreditCard[]
+  debts          Debt[]
+  borrowers      Borrower[]
+  wishlists      Wishlist[]
+  wishlistItems  WishlistItem[]
+  // Null means no onboarding: finished, left, or an account older than it.
+  onboardingStep OnboardingStep?
 
   @@map("user")
+}
+
+enum OnboardingStep {
+  ACCOUNTS
+  CARDS
+  CARD_ENTRIES
+  BUDGETS
+  GOALS
+  DEBTS
+  WISHLIST
+  REVIEW
+
+  @@map("onboardingStep")
 }
 
 enum BankAccountType {
