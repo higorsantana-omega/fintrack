@@ -28,7 +28,7 @@ export interface AccountDeletionImpact {
   borrowers: ChangedBorrower[]
 }
 
-export function useEditAccountModalController() {
+export function useEditAccountModalController(onSaved?: () => void) {
   const {
     isEditAccountModalOpen,
     toggleOpenEditAccountModal,
@@ -70,6 +70,7 @@ export function useEditAccountModalController() {
       queryClient.invalidateQueries({ queryKey: ['bankAccounts'] })
       toast.success('Conta editada com sucesso.')
       toggleOpenEditAccountModal()
+      onSaved?.()
     } catch {
       toast.error('Erro ao salvar a conta')
     }

@@ -20,7 +20,12 @@ function formatInstallments(installments: number[]) {
   return `${label} ${numbers}`
 }
 
-export function EditAccountModal() {
+interface EditAccountModalProps {
+  /** Fires after the account is saved, as the modal closes. */
+  onSaved?(): void
+}
+
+export function EditAccountModal({ onSaved }: EditAccountModalProps) {
   const {
     isEditAccountModalOpen,
     toggleOpenEditAccountModal,
@@ -37,7 +42,7 @@ export function EditAccountModal() {
     deletionImpact,
     handleCloseDeletionImpactModal,
     isLoadingDelete
-  } = useEditAccountModalController()
+  } = useEditAccountModalController(onSaved)
 
   if (deletionImpact) {
     const { invoices, debts, borrowers } = deletionImpact

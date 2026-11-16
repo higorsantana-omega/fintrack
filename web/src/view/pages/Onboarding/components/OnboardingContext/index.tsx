@@ -10,10 +10,14 @@ interface OnboardingContextValue {
   currentStep: OnboardingStep
   stepIndex: number
   hasItems: boolean
+  /** The item "Corrigir" on the review step opened; saving it returns there (R24). */
+  correctionId: string | null
   isMoving: boolean
   isFinishing: boolean
   setHasItems(hasItems: boolean): void
   goTo(step: OnboardingStep): Promise<void>
+  /** Opens the step of the item that `itemId` names, to correct it from the review step. */
+  correct(step: OnboardingStep, itemId: string): Promise<void>
   goNext(): Promise<void>
   goBack(): Promise<void>
   finish(): Promise<void>
@@ -25,6 +29,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [hasItems, setHasItems] = useState(false)
+  // Session state only: reloading the page drops the way back to the review step.
+  const [correctionId, setCorrectionId] = useState<string | null>(null)
   const moveMutation = useMutation(usersService.updateOnboardingStep)
   const finishMutation = useMutation(usersService.finishOnboarding)
 
@@ -37,13 +43,14 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     queryClient.setQueryData<User>(['users', 'me'], cached => cached && { ...cached, onboardingStep })
   }
 
-  async function goTo(step: OnboardingStep) {
+  async function goTo(step: OnboardingStep, nextCorrectionId: string | null = null) {
     if (step === currentStep) return
 
     try {
       const { onboardingStep } = await moveMutation.mutateAsync(step)
       // The next step's body reports its own items once it mounts.
       setHasItems(false)
+      setCorrectionId(nextCorrectionId)
       mergeStep(onboardingStep)
     } catch {
       toast.error('Erro ao trocar de etapa.')
@@ -65,10 +72,12 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       currentStep,
       stepIndex,
       hasItems,
+      correctionId,
       isMoving: moveMutation.isLoading,
       isFinishing: finishMutation.isLoading,
       setHasItems,
-      goTo,
+      goTo: step => goTo(step),
+      correct: goTo,
       goNext: () => goTo(ONBOARDING_STEPS[stepIndex + 1].key),
       goBack: () => goTo(ONBOARDING_STEPS[stepIndex - 1].key),
       finish

@@ -8,20 +8,24 @@ import { StepFooter } from './components/StepFooter'
 import { StepList } from './components/StepList'
 import { AccountsStep } from './steps/AccountsStep'
 import { BudgetsStep } from './steps/BudgetsStep'
+import { CardEntriesStep } from './steps/CardEntriesStep'
 import { CardsStep } from './steps/CardsStep'
 import { DebtsStep } from './steps/DebtsStep'
 import { GoalsStep } from './steps/GoalsStep'
+import { ReviewStep } from './steps/ReviewStep'
 import { WishlistStep } from './steps/WishlistStep'
 import { useOnboardingController } from './useOnboardingController'
 
-// The content of each step, under its title. A step without an entry shows only its title and help text.
-const STEP_BODIES: Partial<Record<OnboardingStep, ComponentType>> = {
+// The content of each step, under its title.
+const STEP_BODIES: Record<OnboardingStep, ComponentType> = {
   ACCOUNTS: AccountsStep,
   CARDS: CardsStep,
+  CARD_ENTRIES: CardEntriesStep,
   BUDGETS: BudgetsStep,
   GOALS: GoalsStep,
   DEBTS: DebtsStep,
-  WISHLIST: WishlistStep
+  WISHLIST: WishlistStep,
+  REVIEW: ReviewStep
 }
 
 function OnboardingContent() {
@@ -68,7 +72,7 @@ function OnboardingContent() {
             <p className='tracking-[-0.5px] text-gray-700'>{step.help}</p>
           </div>
 
-          {StepBody && <StepBody key={step.key} />}
+          <StepBody key={step.key} />
         </section>
 
         <StepFooter
