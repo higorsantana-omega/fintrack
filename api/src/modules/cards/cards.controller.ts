@@ -21,6 +21,7 @@ import { UpdateCardPurchaseDto } from './dto/update-card-purchase.dto';
 import { CreateRecurringChargeDto } from './dto/create-recurring-charge.dto';
 import { UpdateRecurringChargeDto } from './dto/update-recurring-charge.dto';
 import { CreateInvoicePaymentDto } from './dto/create-invoice-payment.dto';
+import { SetOpeningAdjustmentDto } from './dto/set-opening-adjustment.dto';
 
 @Controller('cards')
 export class CardsController {
@@ -96,6 +97,22 @@ export class CardsController {
       cardId,
       month,
       createInvoicePaymentDto,
+    );
+  }
+
+  @Put(':cardId/invoices/:month/opening-adjustment')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  setOpeningAdjustment(
+    @ActiveUserId() userId: string,
+    @Param('cardId', ParseUUIDPipe) cardId: string,
+    @Param('month', ParseMonthPipe) month: string,
+    @Body() setOpeningAdjustmentDto: SetOpeningAdjustmentDto,
+  ) {
+    return this.cardEntriesService.setOpeningAdjustment(
+      userId,
+      cardId,
+      month,
+      setOpeningAdjustmentDto,
     );
   }
 

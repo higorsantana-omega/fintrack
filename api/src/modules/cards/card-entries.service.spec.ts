@@ -15,12 +15,18 @@ import {
 import { CardPurchasesRepository } from 'src/database/repositories/card-purchases.repositories';
 import { RecurringChargesRepository } from 'src/database/repositories/recurring-charges.repositories';
 import { CategoriesRepository } from 'src/database/repositories/categories.repositories';
-import { formatMonthKey, getMonthKey } from 'src/shared/calendar';
+import {
+  formatMonthKey,
+  getMonthKey,
+  getToday,
+  parseMonthKey,
+} from 'src/shared/calendar';
 import {
   CardPurchaseKind,
   CreateCardPurchaseDto,
 } from './dto/create-card-purchase.dto';
-import { getLimit } from './card-calculations';
+import { SetOpeningAdjustmentDto } from './dto/set-opening-adjustment.dto';
+import { getInvoices, getLimit } from './card-calculations';
 
 const ANA = '11111111-1111-1111-1111-111111111111';
 const BIA = '22222222-2222-2222-2222-222222222222';
@@ -347,6 +353,13 @@ describe('CardEntriesService', () => {
               categories.find(
                 (category) =>
                   category.userId === userId && category.id === categoryId,
+              ) ?? null,
+            findByKey: async (userId: string, key: string, type: string) =>
+              categories.find(
+                (category) =>
+                  category.userId === userId &&
+                  category.key === key &&
+                  category.type === type,
               ) ?? null,
           },
         },
@@ -823,6 +836,266 @@ describe('CardEntriesService', () => {
     });
   });
 
+  describe('opening adjustment', () => {
+    // Today is 11/16. Itaú closes on the 25th and is due on the 5th: December
+    // is open and November, due 11/5, is the last closed. Nubank closes on
+    // the 3rd and is due on the 20th: December is open and November, from
+    // 10/3 to 11/3 and due 11/20, is the last closed.
+    const itau = (purchases: Purchase[] = [], rules: Rule[] = []) =>
+      makeCard({
+        name: 'Itaú',
+        cycles: [
+          { closingDay: 25, dueDay: 5, effectiveFrom: monthDate('2026-01') },
+        ],
+        purchases,
+        recurringCharges: rules,
+      });
+    const nubank = (purchases: Purchase[] = []) =>
+      makeCard({
+        cycles: [
+          { closingDay: 3, dueDay: 20, effectiveFrom: monthDate('2026-01') },
+        ],
+        purchases,
+      });
+    const charged = (
+      description: string,
+      value: number,
+      date: string,
+      month: string,
+    ): Purchase => ({
+      id: nextId('purchase'),
+      kind: 'PURCHASE',
+      description,
+      totalValue: value,
+      purchaseDate: noon(date),
+      installmentsCount: 1,
+      currentInstallment: 1,
+      anchorInvoiceMonth: null,
+      recurringChargeId: null,
+      category: categoryView('food'),
+      installments: [{ number: 1, value, invoiceMonth: monthDate(month) }],
+    });
+    const iphone = () =>
+      charged('iPhone 4/12', 541.58, '2026-08-10', '2026-12');
+    const netflixCharge = () =>
+      charged('Netflix', 55.9, '2026-11-10', '2026-12');
+
+    const adjust = (
+      card: CardWithRelations,
+      month: string,
+      remaining: number,
+    ) => service.setOpeningAdjustment(ANA, card.id, month, { remaining });
+    const adjustments = (card: CardWithRelations) =>
+      card.purchases.filter(({ category }) => category?.key === 'pre_fintrack');
+    // The invoice as the card page shows it.
+    const invoice = (card: CardWithRelations, month: string) =>
+      getInvoices(card, getToday(), {
+        fromMonth: parseMonthKey(month),
+        toMonth: parseMonthKey(month),
+      })[0];
+
+    beforeEach(() => {
+      setToday('2026-11-16T15:00:00.000Z');
+    });
+
+    it('AE1: Itaú open invoice with R$ 597,48 and R$ 1.240,00 at the bank gets a R$ 642,52 purchase dated today', async () => {
+      const card = itau([iphone(), netflixCharge()]);
+      cards.push(card);
+
+      await adjust(card, '2026-12', 1240);
+
+      expect(adjustments(card)).toHaveLength(1);
+      expect(adjustments(card)[0]).toMatchObject({
+        kind: 'PURCHASE',
+        description: 'Compras antes do fintrack',
+        totalValue: 642.52,
+        purchaseDate: noon('2026-11-16'),
+        category: { id: 'pre-fintrack' },
+      });
+      expect(months(adjustments(card)[0])).toEqual([[1, 642.52, '2026-12']]);
+      expect(invoice(card, '2026-12').balance).toBe(1240);
+    });
+
+    it('AE2: Nubank gets R$ 1.558,42 at the start of the closed invoice period and R$ 292,52 today in the open one', async () => {
+      const card = nubank([
+        charged('iPhone 3/12', 541.58, '2026-07-10', '2026-11'),
+        iphone(),
+        netflixCharge(),
+      ]);
+      cards.push(card);
+
+      await adjust(card, '2026-11', 2100);
+      await adjust(card, '2026-12', 890);
+
+      expect(
+        adjustments(card).map((adjustment) => [
+          adjustment.kind,
+          adjustment.totalValue,
+          adjustment.purchaseDate,
+          months(adjustment)[0][2],
+        ]),
+      ).toEqual([
+        ['PURCHASE', 1558.42, noon('2026-10-03'), '2026-11'],
+        ['PURCHASE', 292.52, noon('2026-11-16'), '2026-12'],
+      ]);
+      expect(invoice(card, '2026-11').balance).toBe(2100);
+      expect(invoice(card, '2026-12').balance).toBe(890);
+    });
+
+    it('AE3: R$ 550,00 at the bank against R$ 597,48 in the app gets a R$ 47,48 credit', async () => {
+      const card = itau([iphone(), netflixCharge()]);
+      cards.push(card);
+
+      await adjust(card, '2026-12', 550);
+
+      expect(adjustments(card)).toHaveLength(1);
+      expect(adjustments(card)[0]).toMatchObject({
+        kind: 'REFUND',
+        description: 'Compras antes do fintrack',
+        totalValue: 47.48,
+      });
+      expect(invoice(card, '2026-12').balance).toBe(550);
+    });
+
+    it('AE8: repeating the value changes nothing, a new value replaces the adjustment, and the app value removes it', async () => {
+      const card = itau([iphone(), netflixCharge()]);
+      cards.push(card);
+      await adjust(card, '2026-12', 1240);
+      const before = structuredClone(card.purchases);
+
+      setToday('2026-11-17T15:00:00.000Z');
+      await adjust(card, '2026-12', 1240);
+      expect(card.purchases).toEqual(before);
+
+      await adjust(card, '2026-12', 1300);
+      expect(adjustments(card)).toHaveLength(1);
+      expect(adjustments(card)[0]).toMatchObject({
+        id: before[2].id,
+        kind: 'PURCHASE',
+        totalValue: 702.52,
+      });
+      expect(months(adjustments(card)[0])).toEqual([[1, 702.52, '2026-12']]);
+      expect(invoice(card, '2026-12').balance).toBe(1300);
+
+      await adjust(card, '2026-12', 597.48);
+      expect(adjustments(card)).toEqual([]);
+      expect(invoice(card, '2026-12').balance).toBe(597.48);
+    });
+
+    it('AE9: a closed invoice already paid at the bank gets a R$ 541,58 credit and ends paid', async () => {
+      const card = nubank([
+        charged('iPhone 3/12', 541.58, '2026-07-10', '2026-11'),
+      ]);
+      cards.push(card);
+
+      await adjust(card, '2026-11', 0);
+
+      expect(adjustments(card)).toHaveLength(1);
+      expect(adjustments(card)[0]).toMatchObject({
+        kind: 'REFUND',
+        totalValue: 541.58,
+        purchaseDate: noon('2026-10-03'),
+      });
+      expect(invoice(card, '2026-11')).toMatchObject({
+        balance: 0,
+        status: 'PAID',
+      });
+    });
+
+    it('replaces a purchase adjustment that becomes a credit, keeping one per invoice', async () => {
+      const card = itau([iphone(), netflixCharge()]);
+      cards.push(card);
+      await adjust(card, '2026-12', 1240);
+      const [purchase] = adjustments(card);
+
+      await adjust(card, '2026-12', 550);
+
+      expect(adjustments(card)).toHaveLength(1);
+      expect(adjustments(card)[0].id).not.toBe(purchase.id);
+      expect(adjustments(card)[0]).toMatchObject({
+        kind: 'REFUND',
+        totalValue: 47.48,
+      });
+      expect(invoice(card, '2026-12').balance).toBe(550);
+    });
+
+    it('leaves a recurring charge due after today out of the base', async () => {
+      const rule = netflix({
+        value: 55.9,
+        firstChargeDate: day('2026-11-20'),
+        materializedThrough: day('2026-11-19'),
+      });
+      const card = itau([iphone()], [rule]);
+      cards.push(card);
+
+      await adjust(card, '2026-12', 1240);
+
+      expect(adjustments(card)[0].totalValue).toBe(698.42);
+      expect(invoice(card, '2026-12')).toMatchObject({
+        balance: 1240,
+        forecast: 55.9,
+      });
+    });
+
+    it('counts a recurring charge due today that no read created yet', async () => {
+      const rule = netflix({
+        value: 55.9,
+        firstChargeDate: day('2026-11-16'),
+        materializedThrough: day('2026-11-15'),
+      });
+      const card = itau([iphone()], [rule]);
+      cards.push(card);
+
+      await adjust(card, '2026-12', 1240);
+
+      expect(adjustments(card)[0].totalValue).toBe(642.52);
+      expect(invoice(card, '2026-12').balance).toBe(1240);
+    });
+
+    it('returns 400 for a month after the open invoice or before the last closed one', async () => {
+      const card = itau([iphone()]);
+      cards.push(card);
+
+      for (const month of ['2027-01', '2026-10']) {
+        await expect(adjust(card, month, 100)).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+      }
+      expect(adjustments(card)).toEqual([]);
+    });
+
+    it('takes 0 on the AE2 closed invoice already adjusted to R$ 2.100,00 after its due date, leaving it paid', async () => {
+      const card = nubank([
+        charged('iPhone 3/12', 541.58, '2026-07-10', '2026-11'),
+      ]);
+      cards.push(card);
+      await adjust(card, '2026-11', 2100);
+
+      setToday('2026-11-21T15:00:00.000Z');
+      await adjust(card, '2026-11', 0);
+
+      expect(adjustments(card)).toHaveLength(1);
+      expect(adjustments(card)[0]).toMatchObject({
+        kind: 'REFUND',
+        totalValue: 541.58,
+      });
+      expect(invoice(card, '2026-11')).toMatchObject({
+        balance: 0,
+        status: 'PAID',
+      });
+    });
+
+    it("returns 404 for another user's card", async () => {
+      const card = makeCard({ userId: BIA });
+      cards.push(card);
+
+      await expect(adjust(card, '2026-12', 100)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(card.purchases).toEqual([]);
+    });
+  });
+
   it('returns 409 for every write on an archived card', async () => {
     const rule = netflix({ materializedThrough: day('2026-10-05') });
     const card = makeCard({
@@ -868,6 +1141,10 @@ describe('CardEntriesService', () => {
         }),
       () => service.updateRecurringCharge(ANA, card.id, rule.id, recurringBody),
       () => service.cancelRecurringCharge(ANA, card.id, rule.id),
+      () =>
+        service.setOpeningAdjustment(ANA, card.id, '2026-11', {
+          remaining: 0,
+        }),
     ];
 
     for (const write of writes) {
@@ -927,5 +1204,21 @@ describe('card entry request validation', () => {
     );
     const refund = { ...body, kind: 'REFUND', categoryId: undefined };
     await expect(validate(refund)).resolves.toMatchObject({ kind: 'REFUND' });
+  });
+});
+
+describe('opening adjustment request validation', () => {
+  const pipe = new ValidationPipe({ whitelist: true });
+  const validate = (body: object) =>
+    pipe.transform(body, { type: 'body', metatype: SetOpeningAdjustmentDto });
+
+  it('accepts 0 and two decimals, and rejects a negative, a three-decimal or a missing value', async () => {
+    await expect(validate({ remaining: 0 })).resolves.toEqual({ remaining: 0 });
+    await expect(validate({ remaining: 1240.5 })).resolves.toEqual({
+      remaining: 1240.5,
+    });
+    for (const body of [{ remaining: -0.01 }, { remaining: 10.555 }, {}]) {
+      await expect(validate(body)).rejects.toBeInstanceOf(BadRequestException);
+    }
   });
 });
