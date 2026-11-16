@@ -17,6 +17,7 @@ export function useInvoiceFieldController({ cardId, invoice, correctionId }: Inv
   const queryClient = useQueryClient()
   const onboarding = useOnboarding()
   const [value, setValue] = useState(toFieldValue(invoice.balance))
+  const [isSaving, setIsSaving] = useState(false)
   const { mutateAsync, reset, isLoading, isSuccess, isError } = useMutation(cardsService.setOpeningAdjustment)
   const id = `invoice-${invoice.month}-${cardId}`
   const isCorrection = onboarding.correctionId === correctionId
@@ -35,6 +36,9 @@ export function useInvoiceFieldController({ cardId, invoice, correctionId }: Inv
   }
 
   async function save() {
+    // One save per invoice at a time: two overlapping PUTs could both create an adjustment.
+    if (isSaving) return
+
     const remaining = currencyStringToNumber(value)
 
     if (value === '' || remaining === invoice.balance) {
@@ -42,16 +46,22 @@ export function useInvoiceFieldController({ cardId, invoice, correctionId }: Inv
       return
     }
 
+    setIsSaving(true)
     try {
-      await mutateAsync({ cardId, month: invoice.month, remaining })
-    } catch {
-      setValue(toFieldValue(invoice.balance))
-      return
+      try {
+        await mutateAsync({ cardId, month: invoice.month, remaining })
+      } catch {
+        setValue(toFieldValue(invoice.balance))
+        return
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['cards'] })
+    } finally {
+      setIsSaving(false)
     }
 
-    await queryClient.invalidateQueries({ queryKey: ['cards'] })
     if (isCorrection) onboarding.goTo('REVIEW')
   }
 
-  return { id, value, handleChange, save, isLoading, isSuccess, isError }
+  return { id, value, handleChange, save, isSaving, isLoading, isSuccess, isError }
 }

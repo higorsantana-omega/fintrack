@@ -12,7 +12,7 @@ interface InvoiceFieldProps {
 }
 
 export function InvoiceField({ cardId, invoice, label, help, correctionId }: InvoiceFieldProps) {
-  const { id, value, handleChange, save, isLoading, isSuccess, isError } = useInvoiceFieldController({
+  const { id, value, handleChange, save, isSaving, isLoading, isSuccess, isError } = useInvoiceFieldController({
     cardId,
     invoice,
     correctionId
@@ -32,7 +32,7 @@ export function InvoiceField({ cardId, invoice, label, help, correctionId }: Inv
       >
         <span className='text-gray-600 tracking-[-0.5px] text-lg'>R$</span>
         <div className='flex-1 min-w-0'>
-          <InputCurrency id={id} value={value} onChange={handleChange} />
+          <InputCurrency id={id} value={value} onChange={handleChange} readOnly={isSaving} />
         </div>
 
         <span aria-live='polite' className='shrink-0 text-sm tracking-[-0.5px]'>
