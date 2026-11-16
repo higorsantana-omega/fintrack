@@ -14,6 +14,7 @@ import { DebtDetail } from '../view/pages/DebtDetail'
 import { BorrowerDetail } from '../view/pages/BorrowerDetail'
 import { Categories } from '../view/pages/Categories'
 import { Wishlist } from '../view/pages/Wishlist'
+import { Onboarding } from '../view/pages/Onboarding'
 
 export function Router () {
   return (
@@ -27,6 +28,8 @@ export function Router () {
         </Route>
       
         <Route element={<AuthGuard isPrivate />}>
+          <Route path='/configuracao' element={<Onboarding />}/>
+
           <Route element={<AppLayout />}>
             <Route path='/' element={<Dashboard />}/>
             <Route path='/metas' element={<Goals />}/>
